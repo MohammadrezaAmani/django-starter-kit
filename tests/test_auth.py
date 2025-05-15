@@ -128,7 +128,7 @@ class TestAuthURLs(TestCase):
             url = reverse(name)
             self.assertTrue(url.startswith("/api/auth/"))
             response = self.client.get(url, follow=True)
-            self.assertIn(response.status_code, [200, 401, 403, 405])
+            self.assertIn(response.status_code, [200, 401, 403, 405])  # type: ignore
 
 
 @pytest.mark.django_db
