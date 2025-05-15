@@ -1,18 +1,19 @@
 import uuid
 from datetime import date
 
-from django.contrib.auth.tokens import PasswordResetTokenGenerator
 import pytest
+from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
+from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.core import mail
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.urls import reverse
-from rest_framework import status
-from rest_framework_simplejwt.tokens import RefreshToken
 from django_ratelimit.exceptions import Ratelimited
 from django_redis import get_redis_connection
-from django.contrib.admin.sites import AdminSite
-from django.core.files.uploadedfile import SimpleUploadedFile
+from rest_framework import status
+from rest_framework_simplejwt.tokens import RefreshToken
+
 from accounts.admin import UserAdmin
 
 User = get_user_model()
