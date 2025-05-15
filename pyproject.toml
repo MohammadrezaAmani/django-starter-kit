@@ -1,0 +1,21 @@
+[project]
+name = "django-starter-kit"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "django-ratelimit>=4.1.0",
+    "django>=5.2.1",
+    "djangorestframework>=3.16.0",
+    "redis[hiredis]>=6.1.0",
+    "djangorestframework-simplejwt>=5.5.0",
+    "python-decouple>=3.8",
+    "pydantic>=2.11.4",
+    "drf-spectacular>=0.28.0",
+    "pytest>=8.3.5",
+    "pytest-django>=4.11.1",
+    "pytest-mock>=3.14.0",
+    "django-redis>=5.4.0",
+    "pillow>=11.2.1",
+]
