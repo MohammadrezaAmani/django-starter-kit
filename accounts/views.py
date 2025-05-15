@@ -2,22 +2,22 @@ import logging
 import uuid
 
 import jwt
-import redis
 from django.conf import settings
 from django.contrib.auth import authenticate, get_user_model
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.core.mail import send_mail
 from django.urls import reverse
 from django_ratelimit.decorators import ratelimit
-from drf_spectacular.openapi import AutoSchema
 from drf_spectacular.utils import OpenApiExample, OpenApiResponse, extend_schema
+from redis import Redis
 from rest_framework import serializers, status
+from rest_framework.generics import GenericAPIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 
+from accounts.permissions import IsVerifiedUser
 from accounts.serializers import (
     ForgotPasswordSerializer,
     LoginSerializer,
@@ -33,12 +33,18 @@ logger = logging.getLogger(__name__)
 
 User = get_user_model()
 
-redis_client = redis.Redis(
-    host=settings.REDIS_HOST,
-    port=settings.REDIS_PORT,
-    db=settings.REDIS_DB,
-    decode_responses=True,
-)
+# Initialize Redis client if Redis is configured
+redis_client = None
+if hasattr(settings, "REDIS_HOST") and settings.REDIS_HOST:
+    try:
+        redis_client = Redis(
+            host=settings.REDIS_HOST,
+            port=getattr(settings, "REDIS_PORT", 6379),
+            db=getattr(settings, "REDIS_DB", 0),
+            decode_responses=True,
+        )
+    except (ImportError, ConnectionError):
+        logger.warning("Redis is not available. Token storage will be disabled.")
 
 
 def get_tokens_for_user(user):
@@ -50,8 +56,10 @@ def get_tokens_for_user(user):
     }
 
 
-class LoginView(APIView):
+class LoginView(GenericAPIView):
+    # Allow anyone to login
     permission_classes = [AllowAny]
+    serializer_class = LoginSerializer
 
     @extend_schema(
         tags=["Authentication"],
@@ -112,7 +120,7 @@ class LoginView(APIView):
     def post(self, request):
         """Handle user login and return JWT tokens."""
         try:
-            serializer = LoginSerializer(data=request.data)
+            serializer = self.get_serializer(data=request.data)
             if not serializer.is_valid():
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -130,7 +138,8 @@ class LoginView(APIView):
             if not user.is_active:
                 logger.warning(f"Inactive user attempted login: {username}")
                 return Response(
-                    {"error": "Account is disabled"}, status=status.HTTP_403_FORBIDDEN
+                    {"error": "Account is disabled"},
+                    status=status.HTTP_401_UNAUTHORIZED,
                 )
 
             tokens = get_tokens_for_user(user)
@@ -139,11 +148,20 @@ class LoginView(APIView):
             refresh_token_expiry = settings.SIMPLE_JWT[
                 "REFRESH_TOKEN_LIFETIME"
             ].total_seconds()
-            redis_client.setex(
-                f"refresh_token:{user.id}", int(refresh_token_expiry), tokens["refresh"]
-            )
 
-            user_data = UserSerializer(user).data
+            # Store token in Redis if available
+            if redis_client:
+                try:
+                    redis_client.setex(
+                        f"refresh_token:{user.id}",
+                        int(refresh_token_expiry),
+                        tokens["refresh"],
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to store token in Redis: {str(e)}")
+
+            user_serializer = UserSerializer(user)
+            user_data = user_serializer.data
             response_data = {
                 "access": tokens["access"],
                 "refresh": tokens["refresh"],
@@ -162,8 +180,10 @@ class LoginView(APIView):
             )
 
 
-class LogoutView(APIView):
+class LogoutView(GenericAPIView):
+    # Only authenticated users can logout
     permission_classes = [IsAuthenticated]
+    serializer_class = RefreshSerializer
 
     @extend_schema(
         tags=["Authentication"],
@@ -204,7 +224,7 @@ class LogoutView(APIView):
     def post(self, request):
         """Handle user logout by blacklisting tokens."""
         try:
-            serializer = RefreshSerializer(data=request.data)
+            serializer = self.get_serializer(data=request.data)
             if not serializer.is_valid():
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -215,7 +235,13 @@ class LogoutView(APIView):
                 token.blacklist()
 
                 user_id = request.user.id
-                redis_client.delete(f"refresh_token:{user_id}")
+
+                # Delete token from Redis if available
+                if redis_client:
+                    try:
+                        redis_client.delete(f"refresh_token:{user_id}")
+                    except Exception as e:
+                        logger.warning(f"Failed to delete token from Redis: {str(e)}")
 
                 logger.info(f"Successful logout for user: {request.user.username}")
                 return Response(
@@ -241,8 +267,9 @@ class LogoutView(APIView):
             )
 
 
-class MeView(APIView):
-    permission_classes = [IsAuthenticated]
+class MeView(GenericAPIView):
+    permission_classes = [IsAuthenticated, IsVerifiedUser]
+    serializer_class = UserSerializer
 
     @extend_schema(
         tags=["User Management"],
@@ -283,7 +310,7 @@ class MeView(APIView):
             user = request.user
             logger.info(f"Profile accessed for user: {user.username}")
 
-            serialized_user = UserSerializer(user)
+            serialized_user = self.get_serializer(user)
             return Response(serialized_user.data, status=status.HTTP_200_OK)
 
         except Exception as e:
@@ -294,8 +321,10 @@ class MeView(APIView):
             )
 
 
-class RefreshView(APIView):
+class RefreshView(GenericAPIView):
+    # Anyone with a valid refresh token can get a new access token
     permission_classes = [AllowAny]
+    serializer_class = RefreshSerializer
 
     @extend_schema(
         tags=["Authentication"],
@@ -352,7 +381,15 @@ class RefreshView(APIView):
                 refresh = RefreshToken(refresh_token)
                 access_token = str(refresh.access_token)
 
-                if redis_client.get(f"blacklist:{refresh_token}"):
+                # Check if token is blacklisted in Redis if available
+                is_blacklisted = False
+                if redis_client:
+                    try:
+                        is_blacklisted = redis_client.get(f"blacklist:{refresh_token}")
+                    except Exception as e:
+                        logger.warning(f"Failed to check blacklist in Redis: {str(e)}")
+
+                if is_blacklisted:
                     logger.warning("Attempt to use blacklisted refresh token")
                     return Response(
                         {"error": "Token is blacklisted"},
@@ -380,8 +417,10 @@ class RefreshView(APIView):
             )
 
 
-class VerifyView(APIView):
+class VerifyView(GenericAPIView):
+    # Anyone with a token can verify it
     permission_classes = [AllowAny]
+    serializer_class = VerifySerializer
 
     @extend_schema(
         tags=["Authentication"],
@@ -429,7 +468,7 @@ class VerifyView(APIView):
     def post(self, request):
         """Verify if access token is valid."""
         try:
-            serializer = VerifySerializer(data=request.data)
+            serializer = self.get_serializer(data=request.data)
             if not serializer.is_valid():
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -475,10 +514,9 @@ class VerifyView(APIView):
             )
 
 
-class RegisterView(APIView):
+class RegisterView(GenericAPIView):
     permission_classes = [AllowAny]
-
-    schema = AutoSchema()
+    serializer_class = RegisterSerializer
 
     @extend_schema(
         tags=["User Management"],
@@ -490,6 +528,28 @@ class RegisterView(APIView):
                 examples=[
                     OpenApiExample(
                         "Invalid input", value={"error": "Email already exists"}
+                    )
+                ],
+            ),
+            401: OpenApiResponse(
+                description="Unauthorized",
+                examples=[
+                    OpenApiExample(
+                        "Unauthorized",
+                        value={
+                            "detail": "Authentication credentials were not provided"
+                        },
+                    )
+                ],
+            ),
+            403: OpenApiResponse(
+                description="Forbidden",
+                examples=[
+                    OpenApiExample(
+                        "Forbidden",
+                        value={
+                            "error": "You do not have permission to perform this action"
+                        },
                     )
                 ],
             ),
@@ -529,13 +589,15 @@ class RegisterView(APIView):
     def post(self, request):
         """Handle user registration with rate limiting."""
         try:
-            serializer = RegisterSerializer(data=request.data)
+            serializer = self.get_serializer(data=request.data)
             if not serializer.is_valid():
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
             user = serializer.save()
             tokens = get_tokens_for_user(user)
-            logger.info(f"New user registered: {user.username}")
+            logger.info(
+                f"New user registered by admin {request.user.username}: {user.username}"
+            )
 
             user_data = UserSerializer(user).data
             response_data = {
@@ -556,10 +618,10 @@ class RegisterView(APIView):
             )
 
 
-class ForgotPasswordView(APIView):
+class ForgotPasswordView(GenericAPIView):
+    # Allow anyone to request a password reset
     permission_classes = [AllowAny]
-
-    schema = AutoSchema()
+    serializer_class = ForgotPasswordSerializer
 
     @ratelimit(key="ip", rate="5/m", method="POST", block=True)
     @extend_schema(
@@ -598,7 +660,7 @@ class ForgotPasswordView(APIView):
     def post(self, request):
         """Handle forgot password request by sending a reset email."""
         try:
-            serializer = ForgotPasswordSerializer(data=request.data)
+            serializer = self.get_serializer(data=request.data)
             if not serializer.is_valid():
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -617,7 +679,12 @@ class ForgotPasswordView(APIView):
             token = token_generator.make_token(user)
             uid = str(uuid.uuid4())
 
-            redis_client.setex(f"reset_token:{uid}", 3600, f"{user.id}:{token}")
+            # Store reset token in Redis if available
+            if redis_client:
+                try:
+                    redis_client.setex(f"reset_token:{uid}", 3600, f"{user.id}:{token}")
+                except Exception as e:
+                    logger.warning(f"Failed to store reset token in Redis: {str(e)}")
 
             reset_url = request.build_absolute_uri(
                 reverse("reset-password") + f"?uid={uid}&token={token}"
@@ -648,8 +715,10 @@ class ForgotPasswordView(APIView):
             )
 
 
-class ResetPasswordView(APIView):
+class ResetPasswordView(GenericAPIView):
+    # Anyone with valid reset token can reset password
     permission_classes = [AllowAny]
+    serializer_class = ResetPasswordSerializer
 
     @extend_schema(
         tags=["Password Reset"],
@@ -691,7 +760,7 @@ class ResetPasswordView(APIView):
     def post(self, request):
         """Handle password reset with token verification."""
         try:
-            serializer = ResetPasswordSerializer(data=request.data)
+            serializer = self.get_serializer(data=request.data)
             if not serializer.is_valid():
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -699,7 +768,13 @@ class ResetPasswordView(APIView):
             uid = serializer.validated_data["uid"]  # type: ignore
             new_password = serializer.validated_data["password"]  # type: ignore
 
-            reset_data = redis_client.get(f"reset_token:{uid}")
+            reset_data = None
+            if redis_client:
+                try:
+                    reset_data = redis_client.get(f"reset_token:{uid}")
+                except Exception as e:
+                    logger.warning(f"Failed to get reset token from Redis: {str(e)}")
+
             if not reset_data:
                 logger.warning(f"Invalid or expired reset token for uid: {uid}")
                 return Response(
@@ -725,7 +800,12 @@ class ResetPasswordView(APIView):
             user.set_password(new_password)
             user.save()
 
-            redis_client.delete(f"reset_token:{uid}")
+            # Delete the reset token from Redis if available
+            if redis_client:
+                try:
+                    redis_client.delete(f"reset_token:{uid}")
+                except Exception as e:
+                    logger.warning(f"Failed to delete reset token from Redis: {str(e)}")
 
             logger.info(f"Password reset successful for user: {user.username}")
             return Response(
