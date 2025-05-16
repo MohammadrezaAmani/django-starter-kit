@@ -1,6 +1,6 @@
 from channels.auth import get_user_model
-from django.shortcuts import render
 from django.utils import timezone
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAdminUser, IsAuthenticated
@@ -13,11 +13,6 @@ from .serializers import (
     NotificationTemplateSerializer,
 )
 from .utils import send_batch_notification
-
-
-def notification_list(request):
-    """Render the frontend notification list page."""
-    return render(request, "notifications/notification_list.html")
 
 
 class NotificationTemplateViewSet(viewsets.ModelViewSet):
@@ -111,3 +106,35 @@ class NotificationViewSet(viewsets.ModelViewSet):
         count = notifications.count()
         notifications.update(is_read=True, read_at=timezone.now())
         return Response({"message": f"Marked {count} notifications as read."})
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(name="pk", type=int, location=OpenApiParameter.PATH)
+        ]
+    )
+    def retrieve(self, request, *args, **kwargs):
+        return super().retrieve(request, *args, **kwargs)
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(name="pk", type=int, location=OpenApiParameter.PATH)
+        ]
+    )
+    def update(self, request, *args, **kwargs):
+        return super().update(request, *args, **kwargs)
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(name="pk", type=int, location=OpenApiParameter.PATH)
+        ]
+    )
+    def partial_update(self, request, *args, **kwargs):
+        return super().partial_update(request, *args, **kwargs)
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(name="pk", type=int, location=OpenApiParameter.PATH)
+        ]
+    )
+    def destroy(self, request, *args, **kwargs):
+        return super().destroy(request, *args, **kwargs)
