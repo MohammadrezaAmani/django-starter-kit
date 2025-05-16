@@ -102,15 +102,16 @@ class AuditLog(models.Model):
             models.Index(fields=["user", "created_at"]),
             models.Index(fields=["action_type"]),
             models.Index(fields=["status"]),
-            models.Index(fields=["priority"]),  # New index for priority
+            models.Index(fields=["priority"]),
             models.Index(fields=["content_type", "object_id"]),
             models.Index(fields=["ip_address"]),
         ]
         ordering = ["-created_at"]
 
     def __str__(self):
-        user = self.user.username if self.user else "Anonymous"  # type: ignore
-        return f"{self.action_type} ({self.priority}) by {user} at {self.created_at}"
+        return (
+            f"{self.action_type} ({self.priority}) by {self.user} at {self.created_at}"
+        )
 
     @classmethod
     def log_action(
