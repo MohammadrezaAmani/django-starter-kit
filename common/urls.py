@@ -1,4 +1,3 @@
-from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
 from .views import (  # LocationViewSet,
@@ -17,6 +16,4 @@ router.register(r"views", ViewViewSet, basename="view")
 router.register(r"comments", CommentViewSet, basename="comment")
 # router.register(r"locations", LocationViewSet, basename="location")
 
-urlpatterns = [
-    path("api/", include(router.urls)),
-]
+urlpatterns = router.urls
