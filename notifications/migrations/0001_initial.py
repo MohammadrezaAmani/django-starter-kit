@@ -188,7 +188,7 @@ class Migration(migrations.Migration):
                 (
                     "is_read",
                     models.BooleanField(
-                        default=False,
+                        default=False,  # type: ignore
                         help_text="Whether the notification has been read (in-app).",
                     ),
                 ),
