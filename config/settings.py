@@ -29,6 +29,7 @@ INSTALLED_APPS = [
     "drf_spectacular",
     "channels",
     "notifications",
+    "audit_log",
 ]
 
 MIDDLEWARE = [
@@ -39,6 +40,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "audit_log.middleware.AuditLogMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
