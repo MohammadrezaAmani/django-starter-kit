@@ -7,11 +7,10 @@ from rest_framework.response import Response
 from audit_log.models import AuditLog
 from audit_log.utils import log_user_action
 
-from .models import Action, Comment, Location, React, Tag, View
-from .serializers import (
+from .models import Action, Comment, React, Tag, View  # , Location
+from .serializers import (  # LocationSerializer,
     ActionSerializer,
     CommentSerializer,
-    LocationSerializer,
     ReactSerializer,
     TagSerializer,
     ViewSerializer,
@@ -136,19 +135,19 @@ class CommentViewSet(viewsets.ModelViewSet):
         )
 
 
-class LocationViewSet(viewsets.ModelViewSet):
-    queryset = Location.objects.all()  # type: ignore
-    serializer_class = LocationSerializer
-    permission_classes = [IsAuthenticated]
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    filterset_fields = ["location_type", "country", "parent"]
-    search_fields = ["name", "address", "postal_code"]
+# class LocationViewSet(viewsets.ModelViewSet):
+#     queryset = Location.objects.all()  # type: ignore
+#     serializer_class = LocationSerializer
+#     permission_classes = [IsAuthenticated]
+#     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+#     filterset_fields = ["location_type", "country", "parent"]
+#     search_fields = ["name", "address", "postal_code"]
 
-    def perform_create(self, serializer):
-        serializer.save()
-        log_user_action(
-            request=self.request,
-            action_type=AuditLog.ActionType.CREATE,
-            content_object=serializer.instance,
-            priority=AuditLog.Priority.MEDIUM,
-        )
+#     def perform_create(self, serializer):
+#         serializer.save()
+#         log_user_action(
+#             request=self.request,
+#             action_type=AuditLog.ActionType.CREATE,
+#             content_object=serializer.instance,
+#             priority=AuditLog.Priority.MEDIUM,
+#         )
