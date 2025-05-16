@@ -1,21 +1,22 @@
+import logging
+
 from django.contrib.auth import get_user_model
-from rest_framework import permissions, status, viewsets, filters
+from django_filters.rest_framework import DjangoFilterBackend
+from drf_spectacular.utils import (
+    OpenApiExample,
+    OpenApiParameter,
+    OpenApiResponse,
+    extend_schema,
+)
+from rest_framework import filters, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.throttling import UserRateThrottle
-from django_filters.rest_framework import DjangoFilterBackend
-from drf_spectacular.utils import (
-    extend_schema,
-    OpenApiExample,
-    OpenApiResponse,
-    OpenApiParameter,
-)
-import logging
 
-from ..permissions import IsAdminUser, IsOwnerOrAdmin, IsAdminUserOrReadOnly
-from ..serializers import UserSerializer, RegisterSerializer
+from ..permissions import IsAdminUser, IsAdminUserOrReadOnly, IsOwnerOrAdmin
+from ..serializers import RegisterSerializer, UserSerializer
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
