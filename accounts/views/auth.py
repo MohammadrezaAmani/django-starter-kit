@@ -27,6 +27,8 @@ from accounts.serializers import (
     UserSerializer,
     VerifySerializer,
 )
+from audit_log.models import AuditLog
+from audit_log.utils import log_user_action
 
 logger = logging.getLogger(__name__)
 
@@ -163,13 +165,34 @@ class LoginView(GenericAPIView):
                 "refresh": tokens["refresh"],
                 "user": user_data,
             }
+            log_user_action(
+                request=request,
+                action_type=AuditLog.ActionType.LOGIN,
+                status=AuditLog.Status.SUCCESS,
+                content_object=user,
+                priority=AuditLog.Priority.LOW,
+            )
             return Response(response_data, status=status.HTTP_200_OK)
 
         except serializers.ValidationError as e:
             logger.warning(f"Validation error during login: {str(e)}")
+            log_user_action(
+                request=request,
+                action_type=AuditLog.ActionType.LOGIN,
+                status=AuditLog.Status.FAILED,
+                error_message="Invalid credentials",
+                priority=AuditLog.Priority.LOW,
+            )
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             logger.error(f"Login error: {str(e)}", exc_info=True)
+            log_user_action(
+                request=request,
+                action_type=AuditLog.ActionType.LOGIN,
+                status=AuditLog.Status.FAILED,
+                error_message=str(e),
+                priority=AuditLog.Priority.LOW,
+            )
             return Response(
                 {"error": "Internal server error"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -238,6 +261,13 @@ class LogoutView(GenericAPIView):
                         logger.warning(f"Failed to delete token from Redis: {str(e)}")
 
                 logger.info(f"Successful logout for user: {request.user.username}")
+                log_user_action(
+                    request=request,
+                    action_type=AuditLog.ActionType.LOGOUT,
+                    status=AuditLog.Status.SUCCESS,
+                    content_object=request.user,
+                    priority=AuditLog.Priority.LOW,
+                )
                 return Response(
                     {"message": "Successfully logged out"},
                     status=status.HTTP_205_RESET_CONTENT,
@@ -245,6 +275,13 @@ class LogoutView(GenericAPIView):
 
             except TokenError as e:
                 logger.warning(f"Invalid refresh token during logout: {str(e)}")
+                log_user_action(
+                    request=request,
+                    action_type=AuditLog.ActionType.LOGOUT,
+                    status=AuditLog.Status.FAILED,
+                    error_message=str(e),
+                    priority=AuditLog.Priority.LOW,
+                )
                 return Response(
                     {"error": "Invalid refresh token"},
                     status=status.HTTP_400_BAD_REQUEST,
