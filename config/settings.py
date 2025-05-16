@@ -21,6 +21,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django.contrib.gis",
     "accounts",
     "rest_framework",
     "rest_framework_simplejwt",
@@ -30,6 +31,7 @@ INSTALLED_APPS = [
     "channels",
     "notifications",
     "audit_log",
+    "common",
 ]
 
 MIDDLEWARE = [
