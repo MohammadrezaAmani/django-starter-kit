@@ -1,7 +1,7 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
-from .models import Action, Comment, Location, React, Tag, View
+from .models import Action, Comment, React, Tag, View  # , Location
 
 User = get_user_model()
 
@@ -73,26 +73,26 @@ class CommentSerializer(serializers.ModelSerializer):
         read_only_fields = ["user", "created_at", "updated_at"]
 
 
-class LocationSerializer(serializers.ModelSerializer):
-    parent = serializers.PrimaryKeyRelatedField(
-        queryset=Location.objects.all(),  # type: ignore
-        allow_null=True,
-    )
-    coordinates = serializers.CharField(allow_null=True)
+# class LocationSerializer(serializers.ModelSerializer):
+#     parent = serializers.PrimaryKeyRelatedField(
+#         queryset=Location.objects.all(),  # type: ignore
+#         allow_null=True,
+#     )
+#     coordinates = serializers.CharField(allow_null=True)
 
-    class Meta:
-        model = Location
-        fields = [
-            "id",
-            "name",
-            "slug",
-            "location_type",
-            "parent",
-            "country",
-            "coordinates",
-            "address",
-            "postal_code",
-            "metadata",
-            "created_at",
-        ]
-        read_only_fields = ["slug", "created_at"]
+#     class Meta:
+#         model = Location
+#         fields = [
+#             "id",
+#             "name",
+#             "slug",
+#             "location_type",
+#             "parent",
+#             "country",
+#             "coordinates",
+#             "address",
+#             "postal_code",
+#             "metadata",
+#             "created_at",
+#         ]
+#         read_only_fields = ["slug", "created_at"]
