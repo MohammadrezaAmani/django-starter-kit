@@ -31,6 +31,5 @@ urlpatterns = [
     path(
         "api/auth/reset-password/", ResetPasswordView.as_view(), name="reset-password"
     ),
-    # Include router URLs for UserViewSet
     path("api/", include(router.urls)),
 ]
