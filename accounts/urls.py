@@ -1,6 +1,7 @@
-from django.urls import path
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
 
-from .views import (
+from .views.auth import (
     ForgotPasswordView,
     LoginView,
     LogoutView,
@@ -10,6 +11,10 @@ from .views import (
     ResetPasswordView,
     VerifyView,
 )
+from .views.user import UserViewSet
+
+router = DefaultRouter()
+router.register(r"users", UserViewSet, basename="user")
 
 urlpatterns = [
     path("api/auth/login/", LoginView.as_view(), name="login"),
@@ -26,4 +31,6 @@ urlpatterns = [
     path(
         "api/auth/reset-password/", ResetPasswordView.as_view(), name="reset-password"
     ),
+    # Include router URLs for UserViewSet
+    path("api/", include(router.urls)),
 ]
