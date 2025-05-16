@@ -157,60 +157,48 @@ REST_FRAMEWORK = {
 }
 
 SPECTACULAR_SETTINGS = {
-    "TITLE": "Your Project API",
-    "DESCRIPTION": "A comprehensive API for authentication, notifications, audit logging, common models, payment processing, and feedback.",
-    "VERSION": "1.0.0",
+    "TITLE": "Django Starter Kit",
+    "DESCRIPTION": "🚀 A production-ready API with modular components",
+    "VERSION": "1.0.2",
     "SERVE_INCLUDE_SCHEMA": True,
     "SWAGGER_UI_SETTINGS": {
         "deepLinking": True,
         "persistAuthorization": True,
         "displayOperationId": True,
         "tryItOutEnabled": True,
+        "defaultModelsExpandDepth": -1,
+        "defaultModelExpandDepth": 2,
+        "docExpansion": "none",
+        "filter": True,
+        "displayRequestDuration": True,
+        "syntaxHighlight": {"activate": True},
+        "tagsSorter": "alpha",
+        "operationsSorter": "method",
     },
-    "TAGS": [
-        {
-            "name": "Authentication",
-            "description": "Endpoints for user login, logout, and token management",
-        },
-        {
-            "name": "User Management",
-            "description": "Endpoints for user registration and profile retrieval",
-        },
-        {
-            "name": "Password Reset",
-            "description": "Endpoints for password reset requests and confirmation",
-        },
-        {
-            "name": "Notifications",
-            "description": "Endpoints for managing user notifications",
-        },
-        {"name": "Audit Log", "description": "Endpoints for tracking user actions"},
-        {
-            "name": "Common",
-            "description": "Endpoints for tags, comments, locations, etc.",
-        },
-        {
-            "name": "Payment",
-            "description": "Endpoints for payment processing and refunds",
-        },
-        {
-            "name": "Feedback",
-            "description": "Endpoints for user feedback and support requests",
-        },
-    ],
     "SECURITY": [
-        {"BearerAuth": {"type": "http", "scheme": "bearer", "bearerFormat": "JWT"}}
+        {
+            "BearerAuth": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "JWT",
+                "description": "JWT Authorization using the Bearer scheme. Example: `Authorization: Bearer <token>`",
+            }
+        }
     ],
     "ENUM_NAME_OVERRIDES": {
         "ErrorEnum": {
-            "invalid_credentials": "Invalid username or password",
-            "account_disabled": "User account is disabled",
-            "invalid_token": "Token is invalid or expired",
-            "blacklisted_token": "Token has been blacklisted",
+            "invalid_credentials": "🔑 Invalid username or password",
+            "account_disabled": "⛔ User account is disabled",
+            "invalid_token": "❌ Token is invalid or expired",
+            "blacklisted_token": "🚫 Token has been blacklisted",
         }
     },
     "POSTPROCESSING_HOOKS": ["drf_spectacular.hooks.postprocess_schema_enums"],
+    "COMPONENT_SPLIT_REQUEST": True,
+    "SORT_OPERATIONS": True,
+    "SCHEMA_PATH_PREFIX": r"/api/v1",
 }
+
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
@@ -257,7 +245,7 @@ EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "your-email@gmail.com")
 EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "your-email-password")
 DEFAULT_FROM_EMAIL = os.environ.get("EMAIL_HOST_USER", "your-email@gmail.com")
 
-# تنظیمات Celery
+
 CELERY_BROKER_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}"
 CELERY_RESULT_BACKEND = "django-db"
 CELERY_ACCEPT_CONTENT = ["json"]
@@ -266,7 +254,7 @@ CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = "Asia/Tehran"
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 
-# تنظیمات Sentry
+
 SENTRY_DSN = os.environ.get("SENTRY_DSN", "")
 if SENTRY_DSN:
     import sentry_sdk
