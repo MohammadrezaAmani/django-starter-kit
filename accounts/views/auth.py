@@ -17,7 +17,6 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 
-from accounts.permissions import IsVerifiedUser
 from accounts.serializers import (
     ForgotPasswordSerializer,
     LoginSerializer,
@@ -268,7 +267,7 @@ class LogoutView(GenericAPIView):
 
 
 class MeView(GenericAPIView):
-    permission_classes = [IsAuthenticated, IsVerifiedUser]
+    permission_classes = [IsAuthenticated]
     serializer_class = UserSerializer
 
     @extend_schema(
