@@ -2,12 +2,6 @@ import logging
 
 from django.contrib.auth import get_user_model
 from django_filters.rest_framework import DjangoFilterBackend
-from drf_spectacular.utils import (
-    OpenApiExample,
-    OpenApiParameter,
-    OpenApiResponse,
-    extend_schema,
-)
 from rest_framework import filters, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
@@ -79,102 +73,6 @@ class UserViewSet(viewsets.ModelViewSet):
             return RegisterSerializer
         return UserSerializer
 
-    @extend_schema(
-        tags=["User Management"],
-        responses={
-            200: UserSerializer(many=True),
-            401: OpenApiResponse(
-                description="Unauthorized",
-                examples=[
-                    OpenApiExample(
-                        "Unauthorized",
-                        value={
-                            "detail": "Authentication credentials were not provided"
-                        },
-                    )
-                ],
-            ),
-            403: OpenApiResponse(
-                description="Forbidden",
-                examples=[
-                    OpenApiExample(
-                        "Forbidden",
-                        value={
-                            "detail": "You do not have permission to perform this action"
-                        },
-                    )
-                ],
-            ),
-        },
-        parameters=[
-            OpenApiParameter(
-                name="is_active",
-                type=bool,
-                location=OpenApiParameter.QUERY,
-                description="Filter by active status",
-            ),
-            OpenApiParameter(
-                name="is_staff",
-                type=bool,
-                location=OpenApiParameter.QUERY,
-                description="Filter by staff status",
-            ),
-            OpenApiParameter(
-                name="is_verified",
-                type=bool,
-                location=OpenApiParameter.QUERY,
-                description="Filter by email verification status",
-            ),
-            OpenApiParameter(
-                name="search",
-                type=str,
-                location=OpenApiParameter.QUERY,
-                description="Search by username or email",
-            ),
-            OpenApiParameter(
-                name="ordering",
-                type=str,
-                location=OpenApiParameter.QUERY,
-                description="Order by username, email, date_joined, or last_activity",
-            ),
-        ],
-        description="Retrieves a paginated list of users with filtering, searching, and ordering. Accessible to admins and staff (read-only).",
-        examples=[
-            OpenApiExample(
-                "List users response",
-                value={
-                    "count": 2,
-                    "next": None,
-                    "previous": None,
-                    "results": [
-                        {
-                            "id": 1,
-                            "username": "admin",
-                            "email": "admin@example.com",
-                            "first_name": "Admin",
-                            "last_name": "User",
-                            "last_login": "2025-05-16T12:00:00Z",
-                            "date_joined": "2025-05-16T12:00:00Z",
-                            "is_verified": True,
-                            "last_activity": "2025-05-16T12:00:00Z",
-                        },
-                        {
-                            "id": 2,
-                            "username": "user",
-                            "email": "user@example.com",
-                            "first_name": "Regular",
-                            "last_name": "User",
-                            "last_login": None,
-                            "date_joined": "2025-05-16T12:00:00Z",
-                            "is_verified": False,
-                            "last_activity": None,
-                        },
-                    ],
-                },
-                response_only=True,
-            )
-        ],
-    )
     def list(self, request, *args, **kwargs):
         try:
             queryset = self.filter_queryset(self.get_queryset())
@@ -192,22 +90,6 @@ class UserViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-    @extend_schema(
-        tags=["User Management"],
-        responses={
-            200: UserSerializer,
-            404: OpenApiResponse(
-                description="Not found",
-                examples=[
-                    OpenApiExample(
-                        "Not found",
-                        value={"detail": "Not found"},
-                    )
-                ],
-            ),
-        },
-        description="Retrieves details of a specific user. Accessible to admins, staff, or the user themselves.",
-    )
     def retrieve(self, request, *args, **kwargs):
         try:
             instance = self.get_object()
@@ -223,23 +105,6 @@ class UserViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-    @extend_schema(
-        tags=["User Management"],
-        request=RegisterSerializer,
-        responses={
-            201: UserSerializer,
-            400: OpenApiResponse(
-                description="Invalid input",
-                examples=[
-                    OpenApiExample(
-                        "Invalid input",
-                        value={"error": "Email already exists"},
-                    )
-                ],
-            ),
-        },
-        description="Creates a new user. Accessible to admins or during registration.",
-    )
     def create(self, request, *args, **kwargs):
         try:
             serializer = self.get_serializer(data=request.data)
@@ -262,33 +127,6 @@ class UserViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-    @extend_schema(
-        tags=["User Management"],
-        responses={
-            200: UserSerializer,
-            400: OpenApiResponse(
-                description="Invalid input",
-                examples=[
-                    OpenApiExample(
-                        "Invalid input",
-                        value={"error": "Invalid data"},
-                    )
-                ],
-            ),
-            403: OpenApiResponse(
-                description="Forbidden",
-                examples=[
-                    OpenApiExample(
-                        "Forbidden",
-                        value={
-                            "detail": "You do not have permission to perform this action"
-                        },
-                    )
-                ],
-            ),
-        },
-        description="Updates a user's information. Accessible to admins or the user themselves.",
-    )
     def update(self, request, *args, **kwargs):
         try:
             partial = kwargs.pop("partial", False)
@@ -310,35 +148,6 @@ class UserViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-    @extend_schema(
-        tags=["User Management"],
-        responses={
-            204: OpenApiResponse(
-                description="User deleted successfully",
-            ),
-            403: OpenApiResponse(
-                description="Forbidden",
-                examples=[
-                    OpenApiExample(
-                        "Forbidden",
-                        value={
-                            "detail": "You do not have permission to perform this action"
-                        },
-                    )
-                ],
-            ),
-            404: OpenApiResponse(
-                description="Not found",
-                examples=[
-                    OpenApiExample(
-                        "Not found",
-                        value={"detail": "Not found"},
-                    )
-                ],
-            ),
-        },
-        description="Deletes a user. Accessible to admins or the user themselves.",
-    )
     def destroy(self, request, *args, **kwargs):
         try:
             instance = self.get_object()
@@ -352,41 +161,6 @@ class UserViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-    @extend_schema(
-        tags=["User Management"],
-        request={
-            "multipart/form-data": {
-                "type": "object",
-                "properties": {
-                    "profile_picture": {"type": "string", "format": "binary"},
-                },
-            }
-        },
-        responses={
-            200: UserSerializer,
-            400: OpenApiResponse(
-                description="Invalid input",
-                examples=[
-                    OpenApiExample(
-                        "Invalid input",
-                        value={"error": "No file was submitted"},
-                    )
-                ],
-            ),
-            403: OpenApiResponse(
-                description="Forbidden",
-                examples=[
-                    OpenApiExample(
-                        "Forbidden",
-                        value={
-                            "detail": "You do not have permission to perform this action"
-                        },
-                    )
-                ],
-            ),
-        },
-        description="Uploads or updates a user's profile picture. Accessible to admins or the user themselves.",
-    )
     @action(detail=True, methods=["post"], url_path="upload-profile-picture")
     def upload_profile_picture(self, request, pk=None):
         try:
@@ -414,53 +188,6 @@ class UserViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-    @extend_schema(
-        tags=["User Management"],
-        request={
-            "application/json": {
-                "type": "object",
-                "properties": {
-                    "user_ids": {
-                        "type": "array",
-                        "items": {"type": "integer"},
-                        "description": "List of user IDs to delete",
-                    }
-                },
-                "required": ["user_ids"],
-            }
-        },
-        responses={
-            204: OpenApiResponse(
-                description="Users deleted successfully",
-            ),
-            400: OpenApiResponse(
-                description="Invalid input",
-                examples=[
-                    OpenApiExample(
-                        "Invalid input",
-                        value={"error": "user_ids is required"},
-                    )
-                ],
-            ),
-            403: OpenApiResponse(
-                description="Forbidden",
-                examples=[
-                    OpenApiExample(
-                        "Forbidden",
-                        value={
-                            "detail": "You do not have permission to perform this action"
-                        },
-                    )
-                ],
-            ),
-        },
-        description="Bulk deletes users by IDs. Accessible to admins only.",
-        examples=[
-            OpenApiExample(
-                "Bulk delete request", value={"user_ids": [2, 3, 4]}, request_only=True
-            )
-        ],
-    )
     @action(detail=False, methods=["post"], url_path="bulk-delete")
     def bulk_delete(self, request):
         try:
