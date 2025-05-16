@@ -24,4 +24,9 @@ dependencies = [
     "daphne>=4.1.2",
     "django-guardian>=3.0.0",
     "twisted[http2,tls]>=24.11.0",
+    "django-mptt>=0.17.0",
+    "django-countries>=7.6.1",
+    "django-rest-framework>=0.1.0",
+    "gdal>=3.11.0",
+    "geos>=0.2.3",
 ]
