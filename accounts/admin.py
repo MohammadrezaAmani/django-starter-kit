@@ -112,5 +112,4 @@ class UserAdmin(BaseUserAdmin):
     activate_users.short_description = _("Activate selected users")  # type: ignore
 
 
-# Register the User model with the custom UserAdmin
 admin.site.register(User, UserAdmin)
