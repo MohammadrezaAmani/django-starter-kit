@@ -1,4 +1,3 @@
-from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
 from .views import AuditLogViewSet
@@ -6,6 +5,4 @@ from .views import AuditLogViewSet
 router = DefaultRouter()
 router.register(r"logs", AuditLogViewSet, basename="audit-log")
 
-urlpatterns = [
-    path("api/", include(router.urls)),
-]
+urlpatterns = router.urls
