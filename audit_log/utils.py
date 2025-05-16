@@ -8,7 +8,6 @@ logger = logging.getLogger(__name__)
 
 
 def get_client_ip(request):
-    """Extract client IP from request."""
     x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
     if x_forwarded_for:
         ip = x_forwarded_for.split(",")[0]
@@ -27,16 +26,24 @@ def log_user_action(
     error_message=None,
     priority=None,
     notify=False,
+    metadata=None,
+    object_repr=None,
 ):
-    """Log a user action and optionally send a notification."""
     ip_address = get_client_ip(request) if request else None
     user_agent = request.META.get("HTTP_USER_AGENT", "") if request else ""
-    metadata = {
+    metadata = metadata or {
         "url": request.build_absolute_uri() if request else "",
         "method": request.method if request else "",
     }
+    if "url" not in metadata:
+        metadata["url"] = request.build_absolute_uri() if request else ""
+    if "method" not in metadata:
+        metadata["method"] = request.method if request else ""
+    if "user_agent" not in metadata:
+        metadata["user_agent"] = user_agent
+    if "ip_address" not in metadata:
+        metadata["ip_address"] = ip_address
 
-    # Automatically notify for high-priority actions if not specified
     if priority == AuditLog.Priority.HIGH and notify is False:
         notify = True
 
@@ -67,4 +74,19 @@ def log_user_action(
 
     logger.info(
         f"Logged {action_type} (Priority: {priority or 'Default'}) for user {user or 'Anonymous'}"
+    )
+
+
+def log_sentry_error(event_id, user=None, metadata=None):
+    """Log Sentry errors in AuditLog."""
+    metadata = metadata or {}
+    log_user_action(
+        user=user,
+        action_type=AuditLog.ActionType.SYSTEM,
+        status=AuditLog.Status.FAILED,
+        priority=AuditLog.Priority.HIGH,
+        object_repr="Sentry Error",
+        error_message=f"Sentry event ID: {event_id}",
+        metadata={"sentry_event_id": event_id, **metadata},
+        notify=True,
     )
