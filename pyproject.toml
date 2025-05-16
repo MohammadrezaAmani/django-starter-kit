@@ -19,4 +19,9 @@ dependencies = [
     "django-redis>=5.4.0",
     "pillow>=11.2.1",
     "django-filter>=25.1",
+    "channels>=4.2.2",
+    "channels-redis>=4.2.1",
+    "daphne>=4.1.2",
+    "django-guardian>=3.0.0",
+    "twisted[http2,tls]>=24.11.0",
 ]
