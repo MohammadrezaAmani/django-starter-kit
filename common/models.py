@@ -1,11 +1,9 @@
 from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
-from django.contrib.gis.db import models as gis_models
 from django.db import models
 from django.utils.text import slugify
 from django.utils.translation import gettext_lazy as _
-from django_countries.fields import CountryField
 from mptt.models import MPTTModel, TreeForeignKey
 
 User = get_user_model()
@@ -203,49 +201,49 @@ class Comment(MPTTModel):
         return f"Comment by {self.user} on {self.content_object}"
 
 
-class Location(gis_models.Model):
-    """Advanced location model with geographical and hierarchical data."""
+# class Location(gis_models.Model):
+#     """Advanced location model with geographical and hierarchical data."""
 
-    class LocationType(models.TextChoices):
-        COUNTRY = "COUNTRY", _("Country")
-        STATE = "STATE", _("State")
-        CITY = "CITY", _("City")
-        NEIGHBORHOOD = "NEIGHBORHOOD", _("Neighborhood")
-        ADDRESS = "ADDRESS", _("Address")
+#     class LocationType(models.TextChoices):
+#         COUNTRY = "COUNTRY", _("Country")
+#         STATE = "STATE", _("State")
+#         CITY = "CITY", _("City")
+#         NEIGHBORHOOD = "NEIGHBORHOOD", _("Neighborhood")
+#         ADDRESS = "ADDRESS", _("Address")
 
-    name = models.CharField(max_length=200)
-    slug = models.SlugField(max_length=200, blank=True)
-    location_type = models.CharField(
-        max_length=20,
-        choices=LocationType.choices,
-    )
-    parent = models.ForeignKey(
-        "self",
-        on_delete=models.CASCADE,
-        null=True,
-        blank=True,
-        related_name="children",
-    )
-    country = CountryField(null=True, blank=True)
-    coordinates = gis_models.PointField(null=True, blank=True)
-    address = models.TextField(blank=True)
-    postal_code = models.CharField(max_length=20, blank=True)
-    metadata = models.JSONField(default=dict, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+#     name = models.CharField(max_length=200)
+#     slug = models.SlugField(max_length=200, blank=True)
+#     location_type = models.CharField(
+#         max_length=20,
+#         choices=LocationType.choices,
+#     )
+#     parent = models.ForeignKey(
+#         "self",
+#         on_delete=models.CASCADE,
+#         null=True,
+#         blank=True,
+#         related_name="children",
+#     )
+#     country = CountryField(null=True, blank=True)
+#     coordinates = gis_models.PointField(null=True, blank=True)
+#     address = models.TextField(blank=True)
+#     postal_code = models.CharField(max_length=20, blank=True)
+#     metadata = models.JSONField(default=dict, blank=True)
+#     created_at = models.DateTimeField(auto_now_add=True)
 
-    class Meta:
-        verbose_name = _("location")
-        verbose_name_plural = _("locations")
-        indexes = [
-            models.Index(fields=["name", "location_type"]),
-            models.Index(fields=["country", "postal_code"]),
-            gis_models.Index(fields=["coordinates"]),
-        ]
+#     class Meta:
+#         verbose_name = _("location")
+#         verbose_name_plural = _("locations")
+#         indexes = [
+#             models.Index(fields=["name", "location_type"]),
+#             models.Index(fields=["country", "postal_code"]),
+#             gis_models.Index(fields=["coordinates"]),
+#         ]
 
-    def __str__(self):
-        return f"{self.name} ({self.location_type})"
+#     def __str__(self):
+#         return f"{self.name} ({self.location_type})"
 
-    def save(self, *args, **kwargs):
-        if not self.slug:
-            self.slug = slugify(self.name)
-        super().save(*args, **kwargs)
+#     def save(self, *args, **kwargs):
+#         if not self.slug:
+#             self.slug = slugify(self.name)
+#         super().save(*args, **kwargs)
