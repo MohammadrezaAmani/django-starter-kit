@@ -1,7 +1,7 @@
 from django.contrib import admin
 from mptt.admin import MPTTModelAdmin
 
-from .models import Action, Comment, Location, React, Tag, View
+from .models import Action, Comment, React, Tag, View  # , Location
 
 
 @admin.register(Tag)
@@ -39,8 +39,8 @@ class CommentAdmin(MPTTModelAdmin):
     search_fields = ("text",)
 
 
-@admin.register(Location)
-class LocationAdmin(admin.ModelAdmin):
-    list_display = ("name", "location_type", "country", "parent", "created_at")
-    list_filter = ("location_type", "country")
-    search_fields = ("name", "address", "postal_code")
+# @admin.register(Location)
+# class LocationAdmin(admin.ModelAdmin):
+#     list_display = ("name", "location_type", "country", "parent", "created_at")
+#     list_filter = ("location_type", "country")
+#     search_fields = ("name", "address", "postal_code")
