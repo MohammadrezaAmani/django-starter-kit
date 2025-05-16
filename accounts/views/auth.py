@@ -32,7 +32,6 @@ logger = logging.getLogger(__name__)
 
 User = get_user_model()
 
-# Initialize Redis client if Redis is configured
 redis_client = None
 if hasattr(settings, "REDIS_HOST") and settings.REDIS_HOST:
     try:
@@ -56,7 +55,6 @@ def get_tokens_for_user(user):
 
 
 class LoginView(GenericAPIView):
-    # Allow anyone to login
     permission_classes = [AllowAny]
     serializer_class = LoginSerializer
 
@@ -148,7 +146,6 @@ class LoginView(GenericAPIView):
                 "REFRESH_TOKEN_LIFETIME"
             ].total_seconds()
 
-            # Store token in Redis if available
             if redis_client:
                 try:
                     redis_client.setex(
@@ -180,7 +177,6 @@ class LoginView(GenericAPIView):
 
 
 class LogoutView(GenericAPIView):
-    # Only authenticated users can logout
     permission_classes = [IsAuthenticated]
     serializer_class = RefreshSerializer
 
@@ -235,7 +231,6 @@ class LogoutView(GenericAPIView):
 
                 user_id = request.user.id
 
-                # Delete token from Redis if available
                 if redis_client:
                     try:
                         redis_client.delete(f"refresh_token:{user_id}")
@@ -321,7 +316,6 @@ class MeView(GenericAPIView):
 
 
 class RefreshView(GenericAPIView):
-    # Anyone with a valid refresh token can get a new access token
     permission_classes = [AllowAny]
     serializer_class = RefreshSerializer
 
@@ -380,7 +374,6 @@ class RefreshView(GenericAPIView):
                 refresh = RefreshToken(refresh_token)
                 access_token = str(refresh.access_token)
 
-                # Check if token is blacklisted in Redis if available
                 is_blacklisted = False
                 if redis_client:
                     try:
@@ -417,7 +410,6 @@ class RefreshView(GenericAPIView):
 
 
 class VerifyView(GenericAPIView):
-    # Anyone with a token can verify it
     permission_classes = [AllowAny]
     serializer_class = VerifySerializer
 
@@ -618,7 +610,6 @@ class RegisterView(GenericAPIView):
 
 
 class ForgotPasswordView(GenericAPIView):
-    # Allow anyone to request a password reset
     permission_classes = [AllowAny]
     serializer_class = ForgotPasswordSerializer
 
@@ -678,7 +669,6 @@ class ForgotPasswordView(GenericAPIView):
             token = token_generator.make_token(user)
             uid = str(uuid.uuid4())
 
-            # Store reset token in Redis if available
             if redis_client:
                 try:
                     redis_client.setex(f"reset_token:{uid}", 3600, f"{user.id}:{token}")
@@ -799,7 +789,6 @@ class ResetPasswordView(GenericAPIView):
             user.set_password(new_password)
             user.save()
 
-            # Delete the reset token from Redis if available
             if redis_client:
                 try:
                     redis_client.delete(f"reset_token:{uid}")
