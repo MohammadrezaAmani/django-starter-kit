@@ -14,14 +14,14 @@ urlpatterns = [
     path("logs/", include("audit_log.urls")),
     path("payment/", include("payment.urls")),
     path("c/", include("common.urls")),
-    path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
+    path("schema/", SpectacularAPIView.as_view(), name="schema"),
     path(
-        "api/docs/",
+        "docs/",
         SpectacularSwaggerView.as_view(url_name="schema"),
         name="swagger-ui",
     ),
-    path("api/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
-    path("api/feedback/", include("feedback.urls")),
+    path("redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
+    path("feedback/", include("feedback.urls")),
     path("silk/", include("silk.urls", namespace="silk")),
 ]
 
