@@ -2,15 +2,14 @@ from unittest.mock import patch
 
 import pytest
 from azbankgateways import models as bank_models
+from common.models import Location
 from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.geos import Point
-from rest_framework import status
-from rest_framework.test import APIClient
-
-from common.models import Location
 from notifications.models import Notification
 from payment.models import Payment, PaymentGatewayConfig, Transaction
+from rest_framework import status
+from rest_framework.test import APIClient
 
 User = get_user_model()
 
