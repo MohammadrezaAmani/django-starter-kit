@@ -1,12 +1,11 @@
 import pytest
+from common.models import Action, Comment, Location, React, Tag, View
 from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.geos import Point
+from notifications.models import Notification
 from rest_framework import status
 from rest_framework.test import APIClient
-
-from common.models import Action, Comment, Location, React, Tag, View
-from notifications.models import Notification
 
 User = get_user_model()
 
