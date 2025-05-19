@@ -2,6 +2,7 @@ import uuid
 from datetime import date
 
 import pytest
+from accounts.admin import UserAdmin
 from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
@@ -13,8 +14,6 @@ from django_ratelimit.exceptions import Ratelimited
 from django_redis import get_redis_connection
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
-
-from accounts.admin import UserAdmin
 
 User = get_user_model()
 
