@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     "debug_toolbar",
     "silk",
     "apps.accounts",
+    "apps.blog",
     "apps.chats",
     "apps.notifications",
     "apps.audit_log",
