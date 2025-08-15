@@ -24,6 +24,7 @@ urlpatterns = [
     path("redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
     path("feedback/", include("apps.feedback.urls")),
     path("silk/", include("silk.urls", namespace="silk")),
+    path("events/", include("apps.events.urls", namespace="events")),
 ]
 
 if settings.DEBUG:

@@ -56,6 +56,7 @@ INSTALLED_APPS = [
     "apps.accounts",
     "apps.blog",
     "apps.chats",
+    "apps.events",
     "apps.notifications",
     "apps.audit_log",
     "apps.common",
@@ -174,7 +175,7 @@ SPECTACULAR_SETTINGS = {
         "tryItOutEnabled": True,
         "defaultModelsExpandDepth": -1,
         "defaultModelExpandDepth": 2,
-        "docExpansion": "none",
+        "docExpansion": "list",  # تغییر به "list" برای باز بودن همه موارد
         "filter": True,
         "displayRequestDuration": True,
         "syntaxHighlight": {"activate": True},
@@ -204,7 +205,6 @@ SPECTACULAR_SETTINGS = {
     "SORT_OPERATIONS": True,
     "SCHEMA_PATH_PREFIX": r"/api/v1",
 }
-
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),

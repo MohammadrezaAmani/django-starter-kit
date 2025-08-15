@@ -274,15 +274,15 @@ def handle_profile_view(sender, instance, created, **kwargs):
         try:
             # Update profile view count
             stats, created = ProfileStats.objects.get_or_create(
-                user=instance.viewed_user
+                user=instance.profile_owner
             )
             stats.profile_views = ProfileView.objects.filter(
-                viewed_user=instance.viewed_user
+                profile_owner=instance.profile_owner
             ).count()
             stats.save(update_fields=["profile_views"])
 
             # Update last activity for viewed user
-            instance.viewed_user.update_last_activity()
+            instance.profile_owner.update_last_activity()
 
         except Exception as e:
             logger.error(f"Error handling profile view: {str(e)}", exc_info=True)
@@ -741,7 +741,7 @@ def send_weekly_digest():
             # Get week's statistics
             week_stats = {
                 "profile_views": ProfileView.objects.filter(
-                    viewed_user=user, created_at__gte=one_week_ago
+                    profile_owner=user, created_at__gte=one_week_ago
                 ).count(),
                 "new_connections": Connection.objects.filter(
                     Q(from_user=user) | Q(to_user=user),
@@ -932,7 +932,7 @@ def calculate_profile_engagement_score():
 
             # Profile views (weight: 1)
             score += ProfileView.objects.filter(
-                viewed_user=user, created_at__gte=one_week_ago
+                profile_owner=user, created_at__gte=one_week_ago
             ).count()
 
             # Endorsements received (weight: 3)

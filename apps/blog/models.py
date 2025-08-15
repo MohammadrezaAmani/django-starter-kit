@@ -10,14 +10,15 @@ from channels.layers import get_channel_layer
 from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
-from django.contrib.postgres.fields import ArrayField
-from django.contrib.postgres.indexes import GinIndex
+
+# from django.contrib.postgres.fields import ArrayField  # Commented out for SQLite compatibility
+# from django.contrib.postgres.indexes import GinIndex  # Commented out for SQLite compatibility
 from django.contrib.postgres.search import (
     SearchQuery,
     SearchRank,
-    SearchVector,
-    SearchVectorField,
-)
+    # SearchVector,
+    # SearchVectorField,
+)  # Commented out for SQLite compatibility
 from django.core.validators import (
     FileExtensionValidator,
     MaxValueValidator,
@@ -62,7 +63,7 @@ class BlogCategory(MPTTModel):
         indexes = [
             models.Index(fields=["slug"]),
             models.Index(fields=["parent", "is_active"]),
-            GinIndex(fields=["search_vector"]),
+            # GinIndex(fields=["search_vector"]),  # Commented out for SQLite compatibility
         ]
         permissions = [
             ("can_manage_categories", "Can manage blog categories"),
@@ -100,12 +101,11 @@ class BlogCategory(MPTTModel):
     )
     seo_title = models.CharField(_("SEO Title"), max_length=60, blank=True)
     seo_description = models.CharField(_("SEO Description"), max_length=160, blank=True)
-    seo_keywords = ArrayField(
-        models.CharField(max_length=50),
-        size=20,
+    seo_keywords = models.JSONField(
         default=list,
         blank=True,
         verbose_name=_("SEO Keywords"),
+        help_text="List of SEO keywords",
     )
     canonical_url = models.URLField(_("Canonical URL"), blank=True)
     is_active = models.BooleanField(_("Is Active"), default=True)
@@ -113,7 +113,7 @@ class BlogCategory(MPTTModel):
     sort_order = models.PositiveIntegerField(_("Sort Order"), default=0)
     post_count = models.PositiveIntegerField(_("Post Count"), default=0, editable=False)
     view_count = models.PositiveIntegerField(_("View Count"), default=0, editable=False)
-    search_vector = SearchVectorField(null=True)
+    # search_vector = SearchVectorField(null=True)  # Commented out for SQLite compatibility
     created_at = models.DateTimeField(_("Created At"), auto_now_add=True)
     updated_at = models.DateTimeField(_("Updated At"), auto_now=True)
     created_by = models.ForeignKey(
@@ -180,19 +180,18 @@ class BlogTag(models.Model):
         indexes = [
             models.Index(fields=["slug"]),
             models.Index(fields=["-usage_count"]),
-            GinIndex(fields=["search_vector"]),
+            # GinIndex(fields=["search_vector"]),  # Commented out for SQLite compatibility
         ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(_("Name"), max_length=50, unique=True)
     slug = models.SlugField(_("Slug"), unique=True, max_length=60)
     description = models.TextField(_("Description"), blank=True, max_length=500)
-    synonyms = ArrayField(
-        models.CharField(max_length=50),
-        size=10,
+    synonyms = models.JSONField(
         default=list,
         blank=True,
         verbose_name=_("Synonyms"),
+        help_text="List of tag synonyms",
     )
     color = models.CharField(
         _("Color"), max_length=7, default="#6b7280", help_text="Hex color code"
@@ -202,7 +201,7 @@ class BlogTag(models.Model):
     )
     trending_score = models.FloatField(_("Trending Score"), default=0.0, editable=False)
     is_featured = models.BooleanField(_("Is Featured"), default=False)
-    search_vector = SearchVectorField(null=True)
+    # search_vector = SearchVectorField(null=True)  # Commented out for SQLite compatibility
     created_at = models.DateTimeField(_("Created At"), auto_now_add=True)
     updated_at = models.DateTimeField(_("Updated At"), auto_now=True)
     created_by = models.ForeignKey(
@@ -325,7 +324,7 @@ class BlogPost(models.Model):
             models.Index(fields=["author", "-publish_date"]),
             models.Index(fields=["-publish_date", "status"]),
             models.Index(fields=["is_featured", "-publish_date"]),
-            GinIndex(fields=["search_vector"]),
+            # GinIndex(fields=["search_vector"]),  # Commented out for SQLite compatibility
             models.Index(fields=["scheduled_date"]),
             models.Index(fields=["-created_at"]),
         ]
@@ -438,12 +437,11 @@ class BlogPost(models.Model):
     # SEO and metadata
     seo_title = models.CharField(_("SEO Title"), max_length=60, blank=True)
     seo_description = models.CharField(_("SEO Description"), max_length=160, blank=True)
-    seo_keywords = ArrayField(
-        models.CharField(max_length=50),
-        size=20,
+    seo_keywords = models.JSONField(
         default=list,
         blank=True,
         verbose_name=_("SEO Keywords"),
+        help_text="List of SEO keywords",
     )
     canonical_url = models.URLField(_("Canonical URL"), blank=True)
     meta_robots = models.CharField(
@@ -557,12 +555,11 @@ class BlogPost(models.Model):
         validators=[MinValueValidator(Decimal("0.01"))],
     )
     currency = models.CharField(_("Currency"), max_length=3, default="USD")
-    subscription_tiers = ArrayField(
-        models.CharField(max_length=50),
-        size=10,
+    subscription_tiers = models.JSONField(
         default=list,
         blank=True,
         verbose_name=_("Subscription Tiers"),
+        help_text="List of subscription tiers",
     )
     paywall_position = models.PositiveIntegerField(
         _("Paywall Position"),
@@ -573,12 +570,11 @@ class BlogPost(models.Model):
 
     # Internationalization
     language = models.CharField(_("Language"), max_length=10, default="en")
-    languages = ArrayField(
-        models.CharField(max_length=10),
-        size=20,
+    languages = models.JSONField(
         default=list,
         blank=True,
-        verbose_name=_("Available Languages"),
+        verbose_name=_("Languages"),
+        help_text="List of supported languages",
     )
     translations = models.JSONField(
         _("Translations"),
@@ -648,16 +644,15 @@ class BlogPost(models.Model):
     is_editors_choice = models.BooleanField(_("Editor's Choice"), default=False)
     is_sponsored = models.BooleanField(_("Is Sponsored"), default=False)
     moderation_notes = models.TextField(_("Moderation Notes"), blank=True)
-    content_warnings = ArrayField(
-        models.CharField(max_length=50),
-        size=10,
+    content_warnings = models.JSONField(
         default=list,
         blank=True,
         verbose_name=_("Content Warnings"),
+        help_text="Content warnings for sensitive topics",
     )
 
     # Search and discovery
-    search_vector = SearchVectorField(null=True)
+    # search_vector = SearchVectorField(null=True)  # Commented out for SQLite compatibility
     search_boost = models.FloatField(_("Search Boost"), default=1.0)
     allow_indexing = models.BooleanField(_("Allow Indexing"), default=True)
     allow_comments = models.BooleanField(_("Allow Comments"), default=True)
@@ -1503,11 +1498,11 @@ def update_search_vector(sender, instance, **kwargs):
             tags_text = " ".join(instance.tags.values_list("name", flat=True))
             search_content += f" {tags_text}"
 
-        instance.search_vector = (
-            SearchVector("title", weight="A")
-            + SearchVector("raw_content", weight="B")
-            + SearchVector("excerpt", weight="C")
-        )
+        # instance.search_vector = (
+        #     SearchVector("title", weight="A")
+        #     + SearchVector("raw_content", weight="B")
+        #     + SearchVector("excerpt", weight="C")
+        # )  # Commented out for SQLite compatibility
     except Exception as e:
         logger.error(f"Error updating search vector: {e}")
 
