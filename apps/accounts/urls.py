@@ -6,6 +6,7 @@ from .views.auth import (
     LoginView,
     LogoutView,
     MeView,
+    ProfileMeView,
     RefreshView,
     RegisterView,
     ResetPasswordView,
@@ -59,14 +60,16 @@ urlpatterns = [
     path("logout/", LogoutView.as_view(), name="logout"),
     path("me/", MeView.as_view(), name="me"),
     path("refresh/", RefreshView.as_view(), name="refresh"),
-    path("verify/", VerifyView.as_view(), name="verify"),
     path("register/", RegisterView.as_view(), name="register"),
     path(
-        "forgot-password/",
+        "password/forgot/",
         ForgotPasswordView.as_view(),
         name="forgot-password",
     ),
-    path("reset-password/", ResetPasswordView.as_view(), name="reset-password"),
+    path("password/reset/", ResetPasswordView.as_view(), name="reset-password"),
+    path("email/verify/", VerifyView.as_view(), name="email-verify"),
+    # Profile me endpoint
+    path("profile/me/", ProfileMeView.as_view(), name="profile-me"),
     # Profile endpoints under /profile/ namespace
     path("profile/", include(profile_router.urls)),
 ]

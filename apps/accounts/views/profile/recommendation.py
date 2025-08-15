@@ -16,7 +16,8 @@ from ...permissions import (
     can_view_user_profile,
 )
 from ...serializers import RecommendationSerializer
-from ..user import StandardResultsSetPagination, UserThrottle
+from apps.accounts.views.user import UserRateThrottle
+from apps.events.views import StandardResultsSetPagination
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -29,7 +30,7 @@ class RecommendationViewSet(viewsets.ModelViewSet):
 
     serializer_class = RecommendationSerializer
     pagination_class = StandardResultsSetPagination
-    throttle_classes = [UserThrottle]
+    throttle_classes = [UserRateThrottle]
     filter_backends = [
         DjangoFilterBackend,
         filters.SearchFilter,

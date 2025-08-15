@@ -8,10 +8,15 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 
+from apps.accounts.views.user import UserRateThrottle
+from apps.events.views import StandardResultsSetPagination
+
 from ...models import ActivityLog, Certification
 from ...permissions import IsOwnerOrAdmin, can_view_user_profile
 from ...serializers import CertificationSerializer
-from ..user import StandardResultsSetPagination, UserThrottle
+
+# from apps.accounts.views.user import UserRateThrottle
+from django.db.models import Q
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -24,7 +29,7 @@ class CertificationViewSet(viewsets.ModelViewSet):
 
     serializer_class = CertificationSerializer
     pagination_class = StandardResultsSetPagination
-    throttle_classes = [UserThrottle]
+    throttle_classes = [UserRateThrottle]
     filter_backends = [
         DjangoFilterBackend,
         filters.SearchFilter,

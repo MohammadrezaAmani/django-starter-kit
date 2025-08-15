@@ -13,7 +13,8 @@ from rest_framework.response import Response
 from ...models import ActivityLog, Notification, Task, TaskComment
 from ...permissions import IsTaskAssigneeOrCreator
 from ...serializers import TaskCommentSerializer, TaskSerializer
-from ..user import StandardResultsSetPagination, UserThrottle
+from apps.accounts.views.user import UserRateThrottle
+from apps.events.views import StandardResultsSetPagination
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -26,7 +27,7 @@ class TaskViewSet(viewsets.ModelViewSet):
 
     serializer_class = TaskSerializer
     pagination_class = StandardResultsSetPagination
-    throttle_classes = [UserThrottle]
+    throttle_classes = [UserRateThrottle]
     filter_backends = [
         DjangoFilterBackend,
         filters.SearchFilter,

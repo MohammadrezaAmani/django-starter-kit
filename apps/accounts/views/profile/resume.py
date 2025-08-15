@@ -13,7 +13,8 @@ from rest_framework.response import Response
 from ...models import ActivityLog, Resume
 from ...permissions import IsOwnerOrAdmin, can_view_user_profile
 from ...serializers import ResumeSerializer
-from ..user import StandardResultsSetPagination, UserThrottle
+from apps.accounts.views.user import UserRateThrottle
+from apps.events.views import StandardResultsSetPagination
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -26,7 +27,7 @@ class ResumeViewSet(viewsets.ModelViewSet):
 
     serializer_class = ResumeSerializer
     pagination_class = StandardResultsSetPagination
-    throttle_classes = [UserThrottle]
+    throttle_classes = [UserRateThrottle]
     parser_classes = [MultiPartParser, FormParser]
     filter_backends = [
         DjangoFilterBackend,

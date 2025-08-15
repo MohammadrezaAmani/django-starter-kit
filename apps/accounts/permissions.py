@@ -741,5 +741,71 @@ class CanViewVolunteer(DataAccessPermission):
         super().__init__("volunteer")
 
 
+class IsOwnerOrReadOnly(permissions.BasePermission):
+    """
+    Permission to only allow owners of an object to edit it.
+    """
+
+    def has_object_permission(self, request, view, obj):
+        # Read permissions are allowed to any request,
+        # so we'll always allow GET, HEAD or OPTIONS requests.
+        if request.method in permissions.SAFE_METHODS:
+            return True
+
+        # Write permissions are only allowed to the owner of the object.
+        return obj.user == request.user
+
+
+class IsProfileOwner(permissions.BasePermission):
+    """
+    Permission to only allow profile owners to edit their profile.
+    """
+
+    def has_object_permission(self, request, view, obj):
+        if hasattr(obj, "user"):
+            return obj.user == request.user
+        return obj == request.user
+
+
+class CanViewProfile(permissions.BasePermission):
+    """
+    Permission to view user profiles based on privacy settings.
+    """
+
+    def has_object_permission(self, request, view, obj):
+        # If user is viewing their own profile
+        if obj == request.user:
+            return True
+
+        # Check if profile exists and get privacy settings
+        if not hasattr(obj, "profile"):
+            return False
+
+        profile = obj.profile
+
+        # Public profiles can be viewed by anyone
+        if profile.profile_visibility == "public":
+            return True
+
+        # Private profiles can only be viewed by the owner
+        if profile.profile_visibility == "private":
+            return obj == request.user
+
+        # Connection-only profiles require an accepted connection
+        if profile.profile_visibility == "connections-only":
+            if not request.user.is_authenticated:
+                return False
+
+            from .models import Connection
+
+            return Connection.objects.filter(
+                models.Q(from_user=request.user, to_user=obj)
+                | models.Q(from_user=obj, to_user=request.user),
+                status="accepted",
+            ).exists()
+
+        return False
+
+
 # Import models for Q objects
 from django.db import models

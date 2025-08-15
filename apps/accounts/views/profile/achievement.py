@@ -8,10 +8,13 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 
+from apps.accounts.views.user import UserRateThrottle
+from apps.events.views import StandardResultsSetPagination
+
 from ...models import Achievement, ActivityLog
 from ...permissions import IsOwnerOrAdmin, can_view_user_profile
 from ...serializers import AchievementSerializer
-from ..user import StandardResultsSetPagination, UserThrottle
+
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -24,7 +27,7 @@ class AchievementViewSet(viewsets.ModelViewSet):
 
     serializer_class = AchievementSerializer
     pagination_class = StandardResultsSetPagination
-    throttle_classes = [UserThrottle]
+    throttle_classes = [UserRateThrottle]
     filter_backends = [
         DjangoFilterBackend,
         filters.SearchFilter,

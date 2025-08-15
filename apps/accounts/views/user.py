@@ -2,1393 +2,849 @@ import logging
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
-from django.db.models import Count, Q
+from django.core.cache import cache
+from django.db import models
+from django.db.models import Case, Count, F, Q, When
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
-from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import OpenApiParameter, extend_schema
-from rest_framework import filters, permissions, status, viewsets
+from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter
+from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import PermissionDenied
-from rest_framework.pagination import PageNumberPagination
-from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
+from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.throttling import UserRateThrottle
 
-from ..models import (
+from apps.accounts.filters import UserFilter
+from apps.accounts.models import (
     ActivityLog,
     Connection,
     Follow,
-    Message,
-    Notification,
-    ProfileStats,
     ProfileView,
     Skill,
     SkillEndorsement,
-    UserFile,
     UserProfile,
 )
-from ..permissions import (
-    IsAdminUser,
-    IsOwnerOrAdmin,
-    can_endorse_skill,
-    can_send_connection_request,
-    can_send_message,
-    can_view_user_profile,
+from apps.accounts.permissions import (
+    IsOwnerOrReadOnly,
+    IsProfileOwner,
+    CanViewProfile,
 )
-from ..serializers import (
-    AccountSettingsSerializer,
-    ActivityLogSerializer,
+from apps.accounts.serializers import (
+    BulkOperationSerializer,
     ConnectionRequestSerializer,
     ConnectionSerializer,
-    CoverImageUploadSerializer,
-    FileUploadSerializer,
     FollowSerializer,
-    MessageSerializer,
-    NotificationSerializer,
     OnlineStatusSerializer,
-    PasswordChangeSerializer,
-    PrivacySettingsSerializer,
     ProfileAnalyticsSerializer,
-    ProfilePictureUploadSerializer,
+    ProfileBasicInfoSerializer,
+    ProfileListResponseSerializer,
     ProfileSearchSerializer,
-    ProfileSettingsSerializer,
-    RegisterSerializer,
-    SkillEndorsementSerializer,
     SkillEndorseSerializer,
     StatusUpdateSerializer,
     UserBasicSerializer,
-    UserFileSerializer,
-    UserProfileSerializer,
     UserSerializer,
 )
+from apps.common.mixins import CacheableViewSetMixin, SecurityMixin
+from apps.common.pagination import CustomPageNumberPagination
+from apps.common.utils import get_client_ip, get_user_agent
 
 logger = logging.getLogger(__name__)
+
 User = get_user_model()
 
 
-class StandardResultsSetPagination(PageNumberPagination):
-    page_size = 20
-    page_size_query_param = "page_size"
-    max_page_size = 100
+class UserRateThrottle(UserRateThrottle):
+    """Custom rate limiting for user operations"""
 
-    def get_paginated_response(self, data):
-        return Response(
-            {
-                "count": self.page.paginator.count,
-                "next": self.get_next_link(),
-                "previous": self.get_previous_link(),
-                "results": data,
-                "page": self.page.number,
-                "total_pages": self.page.paginator.num_pages,
-            }
-        )
+    scope = "user"
 
 
-class UserThrottle(UserRateThrottle):
-    rate = "1000/hour"
-
-
-class UserViewSet(viewsets.ModelViewSet):
+@extend_schema_view(
+    list=extend_schema(
+        summary="List Users",
+        description="Get paginated list of users with filtering and search",
+        parameters=[
+            OpenApiParameter(
+                "search", str, description="Search in name, username, email"
+            ),
+            OpenApiParameter("skills", str, description="Filter by skills"),
+            OpenApiParameter("location", str, description="Filter by location"),
+            OpenApiParameter("company", str, description="Filter by current company"),
+            OpenApiParameter("is_online", bool, description="Filter by online status"),
+            OpenApiParameter(
+                "ordering",
+                str,
+                description="Order by: name, joined_date, last_activity",
+            ),
+        ],
+    ),
+    retrieve=extend_schema(
+        summary="Get User Profile",
+        description="Get detailed user profile information",
+    ),
+    update=extend_schema(
+        summary="Update User Profile",
+        description="Update user profile (owner only)",
+    ),
+    partial_update=extend_schema(
+        summary="Partially Update User Profile",
+        description="Partially update user profile (owner only)",
+    ),
+)
+class UserViewSet(CacheableViewSetMixin, SecurityMixin, viewsets.ModelViewSet):
     """
-    Comprehensive user management with professional networking features.
+    Advanced user profile management with:
+    - Comprehensive search and filtering
+    - Privacy controls
+    - Analytics tracking
+    - Connection management
+    - Activity monitoring
     """
 
-    queryset = (
-        User.objects.select_related("profile", "stats")
-        .prefetch_related(
-            "social_links",
-            "experiences",
-            "educations",
-            "certifications",
-            "projects",
-            "skills",
-            "languages",
-            "achievements",
-            "publications",
-            "volunteer_work",
-            "files",
-        )
-        .order_by("username")
+    queryset = User.objects.select_related("profile").prefetch_related(
+        "social_links",
+        "skills",
+        "experience",
+        "educations",
+        "projects",
+        "languages",
+        "achievements",
+        "connections_received",
+        "connections_sent",
+        "followers",
+        "following",
     )
-
     serializer_class = UserSerializer
-    pagination_class = StandardResultsSetPagination
-    throttle_classes = [UserThrottle]
+    permission_classes = [IsAuthenticatedOrReadOnly, IsOwnerOrReadOnly]
+    throttle_classes = [UserRateThrottle]
+    pagination_class = CustomPageNumberPagination
     filter_backends = [
         DjangoFilterBackend,
         filters.SearchFilter,
         filters.OrderingFilter,
     ]
-    filterset_fields = [
-        "is_active",
-        "is_staff",
-        "is_verified",
-        "status",
-        "current_company",
-        "location",
-    ]
+    filterset_class = UserFilter
     search_fields = [
         "username",
-        "email",
         "first_name",
         "last_name",
-        "headline",
-        "current_position",
-        "current_company",
-        "location",
-        "bio",
+        "email",
+        "profile__bio",
+        "profile__headline",
+        "profile__current_company",
+        "profile__location",
+        "skills__name",
     ]
     ordering_fields = [
         "username",
-        "email",
-        "date_joined",
-        "last_activity",
         "first_name",
         "last_name",
+        "date_joined",
+        "last_login",
+        "profile__updated_at",
+        "profile__profile_views_count",
     ]
-    ordering = ["username"]
-
-    def get_permissions(self):
-        if self.action in ["list", "retrieve", "search_profiles"]:
-            permission_classes = [permissions.IsAuthenticated]
-        elif self.action in ["create", "destroy", "bulk_delete"]:
-            permission_classes = [permissions.IsAuthenticated, IsAdminUser]
-        elif self.action in ["update", "partial_update"]:
-            permission_classes = [permissions.IsAuthenticated, IsOwnerOrAdmin]
-        elif self.action in [
-            "upload_profile_picture",
-            "upload_cover_image",
-            "update_status",
-            "change_password",
-            "change_email",
-            "change_username",
-            "update_settings",
-        ]:
-            permission_classes = [permissions.IsAuthenticated, IsOwnerOrAdmin]
-        elif self.action in [
-            "connect",
-            "disconnect",
-            "follow",
-            "unfollow",
-            "endorse_skill",
-            "send_message",
-        ]:
-            permission_classes = [permissions.IsAuthenticated]
-        else:
-            permission_classes = [permissions.IsAuthenticated, IsAdminUser]
-        return [permission() for permission in permission_classes]
+    ordering = ["-date_joined"]
 
     def get_serializer_class(self):
-        if self.action == "create":
-            return RegisterSerializer
-        elif self.action in ["list", "connections", "followers", "following"]:
+        """Return appropriate serializer based on action"""
+        if self.action == "list":
             return UserBasicSerializer
-        elif self.action == "search_profiles":
-            return UserSerializer
-        elif self.action == "analytics":
+        elif self.action in ["search_profiles", "suggestions"]:
+            return UserBasicSerializer
+        elif self.action in ["analytics", "profile_stats"]:
             return ProfileAnalyticsSerializer
+        elif self.action == "update_basic_info":
+            return ProfileBasicInfoSerializer
+        elif self.action == "update_status":
+            return StatusUpdateSerializer
+        elif self.action == "online_status":
+            return OnlineStatusSerializer
         return UserSerializer
 
+    def get_permissions(self):
+        """Set permissions based on action"""
+        if self.action in ["destroy", "update", "partial_update"]:
+            permission_classes = [IsAuthenticated, IsProfileOwner]
+        elif self.action in ["analytics", "activity_log", "connections_data"]:
+            permission_classes = [IsAuthenticated, IsProfileOwner]
+        elif self.action in ["retrieve"]:
+            permission_classes = [CanViewProfile]
+        else:
+            permission_classes = [IsAuthenticatedOrReadOnly]
+
+        return [permission() for permission in permission_classes]
+
     def get_queryset(self):
-        """Filter queryset based on permissions and visibility."""
+        """Filter queryset based on privacy settings and user permissions"""
         queryset = super().get_queryset()
 
-        if self.action == "list":
-            # Only show public profiles or connected users
-            if not self.request.user.is_staff:
-                # Get connected user IDs
-                connected_users = Connection.objects.filter(
-                    Q(from_user=self.request.user) | Q(to_user=self.request.user),
-                    status=Connection.ConnectionStatus.ACCEPTED,
-                ).values_list("from_user_id", "to_user_id")
-
-                connected_ids = set()
-                for from_id, to_id in connected_users:
-                    connected_ids.add(from_id)
-                    connected_ids.add(to_id)
-                connected_ids.discard(self.request.user.id)
-
-                # Filter for public profiles or connected users
-                queryset = queryset.filter(
-                    Q(profile__profile_visibility="public")
-                    | Q(id__in=connected_ids)
-                    | Q(id=self.request.user.id)
-                )
-
-        return queryset
-
-    def retrieve(self, request, *args, **kwargs):
-        """Retrieve user profile with view tracking."""
-        try:
-            instance = self.get_object()
-
-            # Check if user can view this profile
-            if not can_view_user_profile(request.user, instance):
-                raise PermissionDenied("You don't have permission to view this profile")
-
-            # Track profile view
-            if request.user != instance:
-                ProfileView.objects.get_or_create(
-                    viewer=request.user,
-                    profile_owner=instance,
-                    defaults={
-                        "ip_address": request.META.get("REMOTE_ADDR"),
-                        "user_agent": request.META.get("HTTP_USER_AGENT", ""),
-                        "referrer": request.META.get("HTTP_REFERER", ""),
-                    },
-                )
-
-                # Update profile stats
-                stats, created = ProfileStats.objects.get_or_create(user=instance)
-                stats.profile_views += 1
-
-                # Update weekly and monthly views
-                now = timezone.now()
-                week_ago = now - timedelta(days=7)
-                month_ago = now - timedelta(days=30)
-
-                stats.profile_views_this_week = ProfileView.objects.filter(
-                    profile_owner=instance, created_at__gte=week_ago
-                ).count()
-
-                stats.profile_views_this_month = ProfileView.objects.filter(
-                    profile_owner=instance, created_at__gte=month_ago
-                ).count()
-
-                stats.save()
-
-            serializer = self.get_serializer(instance)
-            logger.info(
-                f"Profile viewed: {instance.username} by {request.user.username}"
+        # If user is not authenticated, only show public profiles
+        if not self.request.user.is_authenticated:
+            queryset = queryset.filter(
+                profile__profile_visibility=UserProfile.ProfileVisibility.PUBLIC
             )
-            return Response(serializer.data)
+        else:
+            # For authenticated users, apply privacy filters
+            user = self.request.user
 
-        except PermissionDenied:
-            raise
-        except Exception as e:
-            logger.error(f"Error retrieving user profile: {str(e)}", exc_info=True)
-            return Response(
-                {"error": "Internal server error"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            # Include public profiles
+            public_q = Q(
+                profile__profile_visibility=UserProfile.ProfileVisibility.PUBLIC
             )
 
-    @extend_schema(
-        tags=["User Profiles"],
-        parameters=[
-            OpenApiParameter("query", OpenApiTypes.STR, description="Search query"),
-            OpenApiParameter(
-                "skills", OpenApiTypes.STR, description="Comma-separated skills"
-            ),
-            OpenApiParameter(
-                "location", OpenApiTypes.STR, description="Location filter"
-            ),
-            OpenApiParameter("company", OpenApiTypes.STR, description="Company filter"),
-            OpenApiParameter("page", OpenApiTypes.INT, description="Page number"),
-            OpenApiParameter("limit", OpenApiTypes.INT, description="Results per page"),
-        ],
-        responses={200: UserSerializer(many=True)},
-    )
-    @action(detail=False, methods=["get"])
-    def search_profiles(self, request):
-        """Advanced profile search with filters."""
-        try:
-            search_serializer = ProfileSearchSerializer(data=request.query_params)
-            search_serializer.is_valid(raise_exception=True)
+            # Include own profile
+            own_q = Q(id=user.id)
 
-            params = search_serializer.validated_data
-            queryset = self.get_queryset()
-
-            # Apply search filters
-            if params.get("query"):
-                query = params["query"]
-                queryset = queryset.filter(
-                    Q(username__icontains=query)
-                    | Q(first_name__icontains=query)
-                    | Q(last_name__icontains=query)
-                    | Q(headline__icontains=query)
-                    | Q(current_position__icontains=query)
-                    | Q(current_company__icontains=query)
-                    | Q(bio__icontains=query)
-                )
-
-            if params.get("skills"):
-                queryset = queryset.filter(skills__name__in=params["skills"]).distinct()
-
-            if params.get("location"):
-                queryset = queryset.filter(location__icontains=params["location"])
-
-            if params.get("company"):
-                queryset = queryset.filter(current_company__icontains=params["company"])
-
-            # Apply sorting
-            sort_by = params.get("sort_by", "relevance")
-            sort_order = params.get("sort_order", "desc")
-
-            if sort_by == "name":
-                order_field = "first_name" if sort_order == "asc" else "-first_name"
-            elif sort_by == "experience":
-                order_field = "date_joined" if sort_order == "asc" else "-date_joined"
-            elif sort_by == "connections":
-                # Annotate with connection count
-                queryset = queryset.annotate(
-                    connection_count=Count(
-                        "connections_sent",
-                        filter=Q(connections_sent__status="accepted"),
-                    )
-                    + Count(
-                        "connections_received",
-                        filter=Q(connections_received__status="accepted"),
-                    )
-                )
-                order_field = (
-                    "connection_count" if sort_order == "asc" else "-connection_count"
-                )
-            else:  # relevance
-                order_field = "-last_activity"
-
-            queryset = queryset.order_by(order_field)
-
-            # Paginate results
-            page = self.paginate_queryset(queryset)
-            if page is not None:
-                serializer = self.get_serializer(page, many=True)
-                return self.get_paginated_response(serializer.data)
-
-            serializer = self.get_serializer(queryset, many=True)
-            return Response(serializer.data)
-
-        except Exception as e:
-            logger.error(f"Error in profile search: {str(e)}", exc_info=True)
-            return Response(
-                {"error": "Search failed"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-
-    @extend_schema(
-        tags=["User Profiles"],
-        request=ConnectionRequestSerializer,
-        responses={201: ConnectionSerializer},
-    )
-    @action(detail=True, methods=["post"])
-    def connect(self, request, pk=None):
-        """Send connection request to another user."""
-        try:
-            target_user = self.get_object()
-
-            if not can_send_connection_request(request.user, target_user):
-                return Response(
-                    {"error": "Cannot send connection request to this user"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            serializer = ConnectionRequestSerializer(data=request.data)
-            serializer.is_valid(raise_exception=True)
-
-            connection = Connection.objects.create(
-                from_user=request.user,
-                to_user=target_user,
-                message=serializer.validated_data.get("message", ""),
-                status=Connection.ConnectionStatus.PENDING,
-            )
-
-            # Create notification
-            Notification.objects.create(
-                recipient=target_user,
-                sender=request.user,
-                notification_type=Notification.NotificationType.CONNECTION_REQUEST,
-                title=f"Connection request from {request.user.get_full_name()}",
-                message=f"{request.user.get_full_name()} wants to connect with you.",
-                data={"connection_id": str(connection.id)},
-            )
-
-            # Log activity
-            ActivityLog.objects.create(
-                user=request.user,
-                activity_type=ActivityLog.ActivityType.CONNECTION_REQUEST,
-                description=f"Sent connection request to {target_user.get_full_name()}",
-                ip_address=request.META.get("REMOTE_ADDR"),
-                user_agent=request.META.get("HTTP_USER_AGENT", ""),
-            )
-
-            logger.info(
-                f"Connection request sent from {request.user.username} to {target_user.username}"
-            )
-            return Response(
-                ConnectionSerializer(connection).data,
-                status=status.HTTP_201_CREATED,
-            )
-
-        except Exception as e:
-            logger.error(f"Error sending connection request: {str(e)}", exc_info=True)
-            return Response(
-                {"error": "Failed to send connection request"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-
-    @extend_schema(
-        tags=["User Profiles"],
-        responses={204: None},
-    )
-    @action(detail=True, methods=["delete"])
-    def disconnect(self, request, pk=None):
-        """Remove connection with another user."""
-        try:
-            target_user = self.get_object()
-
-            connection = Connection.objects.filter(
-                Q(from_user=request.user, to_user=target_user)
-                | Q(from_user=target_user, to_user=request.user),
+            # Include connection-only profiles if connected
+            connected_users = Connection.objects.filter(
+                Q(from_user=user) | Q(to_user=user),
                 status=Connection.ConnectionStatus.ACCEPTED,
-            ).first()
+            ).values_list("from_user_id", "to_user_id")
 
-            if not connection:
-                return Response(
-                    {"error": "No connection exists with this user"},
-                    status=status.HTTP_404_NOT_FOUND,
+            connected_ids = set()
+            for from_user_id, to_user_id in connected_users:
+                connected_ids.add(
+                    from_user_id if from_user_id != user.id else to_user_id
                 )
 
-            connection.delete()
-
-            # Update connection counts
-            for user in [request.user, target_user]:
-                stats, created = ProfileStats.objects.get_or_create(user=user)
-                stats.connections_count = Connection.objects.filter(
-                    Q(from_user=user) | Q(to_user=user),
-                    status=Connection.ConnectionStatus.ACCEPTED,
-                ).count()
-                stats.save()
-
-            logger.info(
-                f"Connection removed between {request.user.username} and {target_user.username}"
-            )
-            return Response(status=status.HTTP_204_NO_CONTENT)
-
-        except Exception as e:
-            logger.error(f"Error removing connection: {str(e)}", exc_info=True)
-            return Response(
-                {"error": "Failed to remove connection"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            connections_q = Q(
+                profile__profile_visibility=UserProfile.ProfileVisibility.CONNECTIONS_ONLY,
+                id__in=connected_ids,
             )
 
-    @extend_schema(
-        tags=["User Profiles"],
-        responses={201: FollowSerializer},
-    )
-    @action(detail=True, methods=["post"])
-    def follow(self, request, pk=None):
-        """Follow another user."""
+            queryset = queryset.filter(public_q | own_q | connections_q)
+
+        return queryset.distinct()
+
+    def retrieve(self, request: Request, *args, **kwargs) -> Response:
+        """Get user profile with view tracking"""
+        instance = self.get_object()
+
+        # Track profile view if not own profile
+        if request.user.is_authenticated and request.user != instance:
+            self.track_profile_view(request.user, instance)
+
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
+
+    def track_profile_view(self, viewer: User, viewed: User) -> None:  # type: ignore
+        """Track profile view for analytics"""
         try:
-            target_user = self.get_object()
-
-            if request.user == target_user:
-                return Response(
-                    {"error": "Cannot follow yourself"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            follow_obj, created = Follow.objects.get_or_create(
-                follower=request.user,
-                following=target_user,
+            # Create or update profile view
+            profile_view, created = ProfileView.objects.get_or_create(
+                viewer=viewer,
+                viewed=viewed,
+                defaults={"view_count": 1, "last_viewed": timezone.now()},
             )
 
             if not created:
-                return Response(
-                    {"error": "Already following this user"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+                profile_view.view_count += 1
+                profile_view.last_viewed = timezone.now()
+                profile_view.save(update_fields=["view_count", "last_viewed"])
 
-            # Create notification
-            Notification.objects.create(
-                recipient=target_user,
-                sender=request.user,
-                notification_type=Notification.NotificationType.CONNECTION_REQUEST,
-                title=f"{request.user.get_full_name()} is now following you",
-                message=f"{request.user.get_full_name()} started following you.",
-            )
-
-            logger.info(
-                f"{request.user.username} started following {target_user.username}"
-            )
-            return Response(
-                FollowSerializer(follow_obj).data,
-                status=status.HTTP_201_CREATED,
-            )
+            # Update profile stats
+            if hasattr(viewed, "profile"):
+                viewed.profile.profile_views_count = F("profile_views_count") + 1
+                viewed.profile.save(update_fields=["profile_views_count"])
 
         except Exception as e:
-            logger.error(f"Error following user: {str(e)}", exc_info=True)
-            return Response(
-                {"error": "Failed to follow user"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+            logger.error(f"Failed to track profile view: {e}")
 
     @extend_schema(
-        tags=["User Profiles"],
-        responses={204: None},
+        summary="Search Profiles",
+        description="Advanced profile search with filters",
+        request=ProfileSearchSerializer,
+        responses={200: ProfileListResponseSerializer},
     )
-    @action(detail=True, methods=["delete"])
-    def unfollow(self, request, pk=None):
-        """Unfollow another user."""
-        try:
-            target_user = self.get_object()
+    @action(detail=False, methods=["post"])
+    def search_profiles(self, request: Request) -> Response:
+        """Advanced profile search with multiple filters"""
+        serializer = ProfileSearchSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
-            follow_obj = Follow.objects.filter(
-                follower=request.user,
-                following=target_user,
-            ).first()
+        query_params = serializer.validated_data
+        queryset = self.get_queryset()
 
-            if not follow_obj:
-                return Response(
-                    {"error": "Not following this user"},
-                    status=status.HTTP_404_NOT_FOUND,
-                )
-
-            follow_obj.delete()
-
-            logger.info(f"{request.user.username} unfollowed {target_user.username}")
-            return Response(status=status.HTTP_204_NO_CONTENT)
-
-        except Exception as e:
-            logger.error(f"Error unfollowing user: {str(e)}", exc_info=True)
-            return Response(
-                {"error": "Failed to unfollow user"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        # Apply search filters
+        if query_params.get("query"):
+            search_query = query_params["query"]
+            queryset = queryset.filter(
+                Q(first_name__icontains=search_query)
+                | Q(last_name__icontains=search_query)
+                | Q(username__icontains=search_query)
+                | Q(profile__headline__icontains=search_query)
+                | Q(profile__bio__icontains=search_query)
             )
 
+        if query_params.get("skills"):
+            skills = query_params["skills"]
+            queryset = queryset.filter(skills__name__in=skills).annotate(
+                skill_match_count=Count("skills", distinct=True)
+            )
+
+        if query_params.get("location"):
+            queryset = queryset.filter(
+                profile__location__icontains=query_params["location"]
+            )
+
+        if query_params.get("company"):
+            queryset = queryset.filter(
+                profile__current_company__icontains=query_params["company"]
+            )
+
+        if query_params.get("experience"):
+            queryset = queryset.filter(
+                experience__title__icontains=query_params["experience"]
+            )
+
+        if query_params.get("education"):
+            queryset = queryset.filter(
+                educations__institution__icontains=query_params["education"]
+            )
+
+        # Apply sorting
+        sort_by = query_params.get("sort_by", "relevance")
+        sort_order = query_params.get("sort_order", "desc")
+        order_prefix = "-" if sort_order == "desc" else ""
+
+        if sort_by == "relevance":
+            # Sort by skill match count if skills provided, otherwise by profile completeness
+            if query_params.get("skills"):
+                queryset = queryset.order_by(f"{order_prefix}skill_match_count")
+            else:
+                queryset = queryset.order_by(f"{order_prefix}profile__updated_at")
+        elif sort_by == "name":
+            queryset = queryset.order_by(
+                f"{order_prefix}first_name", f"{order_prefix}last_name"
+            )
+        elif sort_by == "experience":
+            queryset = queryset.order_by(f"{order_prefix}profile__years_of_experience")
+        elif sort_by == "connections":
+            queryset = queryset.annotate(
+                connections_count=Count(
+                    "connections_received",
+                    filter=Q(
+                        connections_received__status=Connection.ConnectionStatus.ACCEPTED
+                    ),
+                )
+            ).order_by(f"{order_prefix}connections_count")
+
+        # Paginate results
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = UserBasicSerializer(
+                page, many=True, context={"request": request}
+            )
+            return self.get_paginated_response(serializer.data)
+
+        serializer = UserBasicSerializer(
+            queryset, many=True, context={"request": request}
+        )
+        return Response(serializer.data)
+
     @extend_schema(
-        tags=["User Profiles"],
+        summary="Get Profile Suggestions",
+        description="Get suggested profiles based on user interests and connections",
         responses={200: UserBasicSerializer(many=True)},
     )
-    @action(detail=True, methods=["get"])
-    def connections(self, request, pk=None):
-        """Get user's connections."""
-        try:
-            user = self.get_object()
+    @action(detail=False, methods=["get"], permission_classes=[IsAuthenticated])
+    def suggestions(self, request: Request) -> Response:
+        """Get personalized profile suggestions"""
+        user = request.user
+        cache_key = f"profile_suggestions:{user.id}"
 
-            if not can_view_user_profile(request.user, user):
-                raise PermissionDenied("You don't have permission to view connections")
+        # Try to get from cache first
+        cached_suggestions = cache.get(cache_key)
+        if cached_suggestions:
+            return Response(cached_suggestions)
 
-            connections = Connection.objects.filter(
+        # Get user's skills and connections for better suggestions
+        user_skills = (
+            list(user.profile.skills.values_list("name", flat=True))
+            if hasattr(user, "profile")
+            else []
+        )
+        connected_user_ids = list(
+            Connection.objects.filter(
                 Q(from_user=user) | Q(to_user=user),
                 status=Connection.ConnectionStatus.ACCEPTED,
-            ).select_related("from_user", "to_user")
+            ).values_list("from_user_id", "to_user_id")
+        )
 
-            connected_users = []
-            for conn in connections:
-                other_user = conn.to_user if conn.from_user == user else conn.from_user
-                connected_users.append(other_user)
+        # Flatten connection IDs and exclude current user
+        connected_ids = set()
+        for from_id, to_id in connected_user_ids:
+            connected_ids.add(from_id if from_id != user.id else to_id)
+        connected_ids.add(user.id)  # Exclude self
 
-            page = self.paginate_queryset(connected_users)
-            if page is not None:
-                serializer = UserBasicSerializer(page, many=True)
-                return self.get_paginated_response(serializer.data)
+        queryset = self.get_queryset().exclude(id__in=connected_ids)
 
-            serializer = UserBasicSerializer(connected_users, many=True)
-            return Response(serializer.data)
-
-        except Exception as e:
-            logger.error(f"Error getting connections: {str(e)}", exc_info=True)
-            return Response(
-                {"error": "Failed to get connections"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        # Prioritize users with similar skills
+        if user_skills:
+            queryset = (
+                queryset.filter(skills__name__in=user_skills)
+                .annotate(common_skills_count=Count("skills", distinct=True))
+                .order_by("-common_skills_count")
             )
 
+        # Add other ranking factors
+        queryset = queryset.annotate(
+            profile_completeness_score=Case(
+                When(profile__bio__isnull=False, then=1),
+                default=0,
+                output_field=models.IntegerField(),
+            )
+            + Case(
+                When(profile__avatar__isnull=False, then=1),
+                default=0,
+                output_field=models.IntegerField(),
+            )
+            + Case(
+                When(experience__isnull=False, then=1),
+                default=0,
+                output_field=models.IntegerField(),
+            )
+        ).order_by("-profile_completeness_score")
+
+        # Limit to top 10 suggestions
+        suggestions = queryset[:10]
+        serializer = UserBasicSerializer(
+            suggestions, many=True, context={"request": request}
+        )
+
+        # Cache for 1 hour
+        cache.set(cache_key, serializer.data, 3600)
+
+        return Response(serializer.data)
+
     @extend_schema(
-        tags=["User Profiles"],
-        responses={200: UserBasicSerializer(many=True)},
+        summary="Send Connection Request",
+        description="Send connection request to another user",
+        request=ConnectionRequestSerializer,
+        responses={201: ConnectionSerializer},
     )
-    @action(detail=True, methods=["get"])
-    def followers(self, request, pk=None):
-        """Get user's followers."""
-        try:
-            user = self.get_object()
+    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated])
+    def connect(self, request: Request, pk=None) -> Response:
+        """Send connection request to user"""
+        target_user = self.get_object()
+        current_user = request.user
 
-            if not can_view_user_profile(request.user, user):
-                raise PermissionDenied("You don't have permission to view followers")
-
-            followers_qs = user.followers.all().select_related("follower")
-            followers = [follow.follower for follow in followers_qs]
-
-            page = self.paginate_queryset(followers)
-            if page is not None:
-                serializer = UserBasicSerializer(page, many=True)
-                return self.get_paginated_response(serializer.data)
-
-            serializer = UserBasicSerializer(followers, many=True)
-            return Response(serializer.data)
-
-        except Exception as e:
-            logger.error(f"Error getting followers: {str(e)}", exc_info=True)
+        if target_user == current_user:
             return Response(
-                {"error": "Failed to get followers"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                {"error": "Cannot connect to yourself"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # Check if connection already exists
+        existing_connection = Connection.objects.filter(
+            Q(from_user=current_user, to_user=target_user)
+            | Q(from_user=target_user, to_user=current_user)
+        ).first()
+
+        if existing_connection:
+            if existing_connection.status == Connection.ConnectionStatus.ACCEPTED:
+                return Response(
+                    {"error": "Already connected"}, status=status.HTTP_400_BAD_REQUEST
+                )
+            elif existing_connection.status == Connection.ConnectionStatus.PENDING:
+                return Response(
+                    {"error": "Connection request already sent"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        # Create connection request
+        connection = Connection.objects.create(
+            from_user=current_user,
+            to_user=target_user,
+            status=Connection.ConnectionStatus.PENDING,
+        )
+
+        # Log activity
+        ActivityLog.objects.create(
+            user=current_user,
+            activity_type=ActivityLog.ActivityType.CONNECTION_REQUEST,
+            description=f"Sent connection request to {target_user.get_full_name()}",
+            ip_address=get_client_ip(request),
+            user_agent=get_user_agent(request),
+        )
+
+        serializer = ConnectionSerializer(connection, context={"request": request})
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
     @extend_schema(
-        tags=["User Profiles"],
-        responses={200: UserBasicSerializer(many=True)},
+        summary="Follow User",
+        description="Follow or unfollow a user",
+        responses={200: FollowSerializer},
     )
-    @action(detail=True, methods=["get"])
-    def following(self, request, pk=None):
-        """Get users that this user is following."""
-        try:
-            user = self.get_object()
+    @action(
+        detail=True, methods=["post", "delete"], permission_classes=[IsAuthenticated]
+    )
+    def follow(self, request: Request, pk=None) -> Response:
+        """Follow or unfollow user"""
+        target_user = self.get_object()
+        current_user = request.user
 
-            if not can_view_user_profile(request.user, user):
-                raise PermissionDenied("You don't have permission to view following")
-
-            following_qs = user.following.all().select_related("following")
-            following = [follow.following for follow in following_qs]
-
-            page = self.paginate_queryset(following)
-            if page is not None:
-                serializer = UserBasicSerializer(page, many=True)
-                return self.get_paginated_response(serializer.data)
-
-            serializer = UserBasicSerializer(following, many=True)
-            return Response(serializer.data)
-
-        except Exception as e:
-            logger.error(f"Error getting following: {str(e)}", exc_info=True)
+        if target_user == current_user:
             return Response(
-                {"error": "Failed to get following"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                {"error": "Cannot follow yourself"}, status=status.HTTP_400_BAD_REQUEST
             )
 
+        if request.method == "POST":
+            follow_obj, created = Follow.objects.get_or_create(
+                follower=current_user, following=target_user
+            )
+
+            if created:
+                # Log activity
+                ActivityLog.objects.create(
+                    user=current_user,
+                    activity_type=ActivityLog.ActivityType.FOLLOW,
+                    description=f"Started following {target_user.get_full_name()}",
+                    ip_address=get_client_ip(request),
+                    user_agent=get_user_agent(request),
+                )
+
+            serializer = FollowSerializer(follow_obj, context={"request": request})
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        else:  # DELETE
+            try:
+                follow_obj = Follow.objects.get(
+                    follower=current_user, following=target_user
+                )
+                follow_obj.delete()
+
+                # Log activity
+                ActivityLog.objects.create(
+                    user=current_user,
+                    activity_type=ActivityLog.ActivityType.UNFOLLOW,
+                    description=f"Unfollowed {target_user.get_full_name()}",
+                    ip_address=get_client_ip(request),
+                    user_agent=get_user_agent(request),
+                )
+
+                return Response(
+                    {"message": "Unfollowed successfully"}, status=status.HTTP_200_OK
+                )
+            except Follow.DoesNotExist:
+                return Response(
+                    {"error": "Not following this user"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
     @extend_schema(
-        tags=["Skills"],
+        summary="Endorse Skill",
+        description="Endorse a skill for the user",
         request=SkillEndorseSerializer,
-        responses={201: SkillEndorsementSerializer},
+        responses={201: "Skill endorsed successfully"},
     )
-    @action(detail=True, methods=["post"])
-    def endorse_skill(self, request, pk=None):
-        """Endorse a user's skill."""
+    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated])
+    def endorse_skill(self, request: Request, pk=None) -> Response:
+        """Endorse a skill for the user"""
+        target_user = self.get_object()
+        current_user = request.user
+
+        if target_user == current_user:
+            return Response(
+                {"error": "Cannot endorse your own skills"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = SkillEndorseSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        skill_id = serializer.validated_data["skill_id"]
+
         try:
-            skill_owner = self.get_object()
-
-            if not can_endorse_skill(request.user, skill_owner):
-                return Response(
-                    {"error": "Cannot endorse skills for this user"},
-                    status=status.HTTP_403_FORBIDDEN,
-                )
-
-            serializer = SkillEndorseSerializer(data=request.data)
-            serializer.is_valid(raise_exception=True)
-
-            skill_id = serializer.validated_data["skill_id"]
-            message = serializer.validated_data.get("message", "")
-
-            skill = Skill.objects.filter(id=skill_id, user=skill_owner).first()
-            if not skill:
-                return Response(
-                    {"error": "Skill not found"},
-                    status=status.HTTP_404_NOT_FOUND,
-                )
-
-            # Check if already endorsed
-            existing_endorsement = SkillEndorsement.objects.filter(
-                skill=skill,
-                endorser=request.user,
-            ).first()
-
-            if existing_endorsement:
-                return Response(
-                    {"error": "Skill already endorsed"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            endorsement = SkillEndorsement.objects.create(
-                skill=skill,
-                endorser=request.user,
-                message=message,
-            )
-
-            # Update endorsement count
-            stats, created = ProfileStats.objects.get_or_create(user=skill_owner)
-            stats.endorsements_count = SkillEndorsement.objects.filter(
-                skill__user=skill_owner
-            ).count()
-            stats.save()
-
-            # Create notification
-            Notification.objects.create(
-                recipient=skill_owner,
-                sender=request.user,
-                notification_type=Notification.NotificationType.SKILL_ENDORSEMENT,
-                title=f"{request.user.get_full_name()} endorsed your {skill.name} skill",
-                message=f"{request.user.get_full_name()} endorsed your {skill.name} skill.",
-                data={"skill_id": str(skill.id), "endorsement_id": str(endorsement.id)},
-            )
-
-            logger.info(f"Skill endorsed: {skill.name} by {request.user.username}")
+            skill = Skill.objects.get(id=skill_id, user_profile__user=target_user)
+        except Skill.DoesNotExist:
             return Response(
-                SkillEndorsementSerializer(endorsement).data,
-                status=status.HTTP_201_CREATED,
+                {"error": "Skill not found"}, status=status.HTTP_404_NOT_FOUND
             )
 
-        except Exception as e:
-            logger.error(f"Error endorsing skill: {str(e)}", exc_info=True)
+        # Check if already endorsed
+        existing_endorsement = SkillEndorsement.objects.filter(
+            skill=skill, endorser=current_user
+        ).first()
+
+        if existing_endorsement:
             return Response(
-                {"error": "Failed to endorse skill"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                {"error": "Skill already endorsed"}, status=status.HTTP_400_BAD_REQUEST
             )
+
+        # Create endorsement
+        SkillEndorsement.objects.create(
+            skill=skill,
+            endorser=current_user,
+            message=serializer.validated_data.get("message", ""),
+        )
+
+        # Log activity
+        ActivityLog.objects.create(
+            user=current_user,
+            activity_type=ActivityLog.ActivityType.ENDORSEMENT,
+            description=f"Endorsed {skill.name} skill for {target_user.get_full_name()}",
+            ip_address=get_client_ip(request),
+            user_agent=get_user_agent(request),
+        )
+
+        return Response(
+            {"message": "Skill endorsed successfully"}, status=status.HTTP_201_CREATED
+        )
 
     @extend_schema(
-        tags=["Messaging"],
-        request=MessageSerializer,
-        responses={201: MessageSerializer},
-    )
-    @action(detail=True, methods=["post"])
-    def send_message(self, request, pk=None):
-        """Send a message to another user."""
-        try:
-            recipient = self.get_object()
-
-            if not can_send_message(request.user, recipient):
-                return Response(
-                    {"error": "Cannot send message to this user"},
-                    status=status.HTTP_403_FORBIDDEN,
-                )
-
-            serializer = MessageSerializer(data=request.data)
-            serializer.is_valid(raise_exception=True)
-
-            message = Message.objects.create(
-                sender=request.user,
-                recipient=recipient,
-                subject=serializer.validated_data.get("subject", ""),
-                content=serializer.validated_data["content"],
-                attachment=serializer.validated_data.get("attachment"),
-            )
-
-            # Create notification
-            Notification.objects.create(
-                recipient=recipient,
-                sender=request.user,
-                notification_type=Notification.NotificationType.MESSAGE,
-                title=f"New message from {request.user.get_full_name()}",
-                message=f"You have a new message from {request.user.get_full_name()}.",
-                data={"message_id": str(message.id)},
-            )
-
-            logger.info(
-                f"Message sent from {request.user.username} to {recipient.username}"
-            )
-            return Response(
-                MessageSerializer(message).data,
-                status=status.HTTP_201_CREATED,
-            )
-
-        except Exception as e:
-            logger.error(f"Error sending message: {str(e)}", exc_info=True)
-            return Response(
-                {"error": "Failed to send message"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-
-    @extend_schema(
-        tags=["User Profiles"],
-        request=StatusUpdateSerializer,
-        responses={200: OnlineStatusSerializer},
-    )
-    @action(detail=False, methods=["post"])
-    def update_status(self, request):
-        """Update user's online status."""
-        try:
-            serializer = StatusUpdateSerializer(data=request.data)
-            serializer.is_valid(raise_exception=True)
-
-            request.user.status = serializer.validated_data["status"]
-            request.user.save(update_fields=["status"])
-
-            return Response(
-                OnlineStatusSerializer(
-                    {
-                        "is_online": request.user.is_online,
-                        "last_seen": request.user.last_activity,
-                    }
-                ).data
-            )
-
-        except Exception as e:
-            logger.error(f"Error updating status: {str(e)}", exc_info=True)
-            return Response(
-                {"error": "Failed to update status"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-
-    @extend_schema(
-        tags=["User Management"],
-        request=ProfilePictureUploadSerializer,
-        responses={200: UserSerializer},
-    )
-    @action(
-        detail=False, methods=["post"], parser_classes=[MultiPartParser, FormParser]
-    )
-    def upload_profile_picture(self, request):
-        """Upload profile picture."""
-        try:
-            serializer = ProfilePictureUploadSerializer(data=request.data)
-            serializer.is_valid(raise_exception=True)
-
-            request.user.profile_picture = serializer.validated_data["profile_picture"]
-            request.user.save(update_fields=["profile_picture"])
-
-            # Log activity
-            ActivityLog.objects.create(
-                user=request.user,
-                activity_type=ActivityLog.ActivityType.PROFILE_UPDATE,
-                description="Updated profile picture",
-                ip_address=request.META.get("REMOTE_ADDR"),
-            )
-
-            return Response(UserSerializer(request.user).data)
-
-        except Exception as e:
-            logger.error(f"Error uploading profile picture: {str(e)}", exc_info=True)
-            return Response(
-                {"error": "Failed to upload profile picture"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-
-    @extend_schema(
-        tags=["User Management"],
-        request=CoverImageUploadSerializer,
-        responses={200: UserProfileSerializer},
-    )
-    @action(
-        detail=False, methods=["post"], parser_classes=[MultiPartParser, FormParser]
-    )
-    def upload_cover_image(self, request):
-        """Upload cover image."""
-        try:
-            serializer = CoverImageUploadSerializer(data=request.data)
-            serializer.is_valid(raise_exception=True)
-
-            profile, created = UserProfile.objects.get_or_create(user=request.user)
-            profile.cover_image = serializer.validated_data["cover_image"]
-            profile.save(update_fields=["cover_image"])
-
-            # Log activity
-            ActivityLog.objects.create(
-                user=request.user,
-                activity_type=ActivityLog.ActivityType.PROFILE_UPDATE,
-                description="Updated cover image",
-                ip_address=request.META.get("REMOTE_ADDR"),
-            )
-
-            return Response(UserProfileSerializer(profile).data)
-
-        except Exception as e:
-            logger.error(f"Error uploading cover image: {str(e)}", exc_info=True)
-            return Response(
-                {"error": "Failed to upload cover image"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-
-    @extend_schema(
-        tags=["User Management"],
-        request=PasswordChangeSerializer,
-        responses={200: {"message": "Password changed successfully"}},
-    )
-    @action(detail=False, methods=["post"])
-    def change_password(self, request):
-        """Change user password."""
-        try:
-            serializer = PasswordChangeSerializer(data=request.data)
-            serializer.is_valid(raise_exception=True)
-
-            if not request.user.check_password(
-                serializer.validated_data["old_password"]
-            ):
-                return Response(
-                    {"error": "Current password is incorrect"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            request.user.set_password(serializer.validated_data["new_password"])
-            request.user.save()
-
-            # Log activity
-            ActivityLog.objects.create(
-                user=request.user,
-                activity_type=ActivityLog.ActivityType.PASSWORD_CHANGE,
-                description="Password changed",
-                ip_address=request.META.get("REMOTE_ADDR"),
-            )
-
-            return Response({"message": "Password changed successfully"})
-
-        except Exception as e:
-            logger.error(f"Error changing password: {str(e)}", exc_info=True)
-            return Response(
-                {"error": "Failed to change password"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-
-    @extend_schema(
-        tags=["User Profiles"],
+        summary="Get Profile Analytics",
+        description="Get detailed analytics for user profile (owner only)",
         responses={200: ProfileAnalyticsSerializer},
     )
-    @action(detail=True, methods=["get"])
-    def analytics(self, request, pk=None):
-        """Get user profile analytics."""
-        try:
-            user = self.get_object()
+    @action(
+        detail=True,
+        methods=["get"],
+        permission_classes=[IsAuthenticated, IsProfileOwner],
+    )
+    def analytics(self, request: Request, pk=None) -> Response:
+        """Get profile analytics"""
+        user = self.get_object()
 
-            # Only allow users to view their own analytics or admins
-            if request.user != user and not request.user.is_staff:
-                raise PermissionDenied("You can only view your own analytics")
+        # Get analytics data
+        now = timezone.now()
+        last_week = now - timedelta(days=7)
+        last_month = now - timedelta(days=30)
 
-            # Get profile views data
-            now = timezone.now()
-            thirty_days_ago = now - timedelta(days=30)
-
-            profile_views = (
-                ProfileView.objects.filter(
-                    profile_owner=user, created_at__gte=thirty_days_ago
-                )
-                .values("created_at__date")
-                .annotate(count=Count("id"))
-                .order_by("created_at__date")
-            )
-
-            # Get connection growth
-            connections = (
-                Connection.objects.filter(
+        analytics_data = {
+            "profile_views": {
+                "total": ProfileView.objects.filter(viewed=user).aggregate(
+                    total=models.Sum("view_count")
+                )["total"]
+                or 0,
+                "this_week": ProfileView.objects.filter(
+                    viewed=user, last_viewed__gte=last_week
+                ).aggregate(total=models.Sum("view_count"))["total"]
+                or 0,
+                "this_month": ProfileView.objects.filter(
+                    viewed=user, last_viewed__gte=last_month
+                ).aggregate(total=models.Sum("view_count"))["total"]
+                or 0,
+            },
+            "connections": {
+                "total": Connection.objects.filter(
                     Q(from_user=user) | Q(to_user=user),
                     status=Connection.ConnectionStatus.ACCEPTED,
-                    created_at__gte=thirty_days_ago,
-                )
-                .values("created_at__date")
-                .annotate(count=Count("id"))
-                .order_by("created_at__date")
-            )
+                ).count(),
+                "pending_sent": Connection.objects.filter(
+                    from_user=user, status=Connection.ConnectionStatus.PENDING
+                ).count(),
+                "pending_received": Connection.objects.filter(
+                    to_user=user, status=Connection.ConnectionStatus.PENDING
+                ).count(),
+            },
+            "followers": Follow.objects.filter(following=user).count(),
+            "following": Follow.objects.filter(follower=user).count(),
+            "skill_endorsements": SkillEndorsement.objects.filter(
+                skill__user_profile__user=user
+            ).count(),
+            "profile_completeness": self.calculate_profile_completeness(user),
+        }
 
-            # Get skill endorsements
-            endorsements = (
-                SkillEndorsement.objects.filter(
-                    skill__user=user, created_at__gte=thirty_days_ago
-                )
-                .values("created_at__date")
-                .annotate(count=Count("id"))
-                .order_by("created_at__date")
-            )
+        return Response(analytics_data)
 
-            # Get top viewers
-            top_viewers = (
-                ProfileView.objects.filter(
-                    profile_owner=user,
-                    viewer__isnull=False,
-                    created_at__gte=thirty_days_ago,
-                )
-                .values("viewer")
-                .annotate(view_count=Count("id"))
-                .order_by("-view_count")[:10]
-            )
+    def calculate_profile_completeness(self, user: User) -> float:  # type: ignore
+        """Calculate profile completeness percentage"""
+        if not hasattr(user, "profile"):
+            return 0.0
 
-            top_viewer_users = User.objects.filter(
-                id__in=[v["viewer"] for v in top_viewers]
-            )
+        profile = user.profile
+        fields_to_check = [
+            profile.bio,
+            profile.avatar,
+            profile.headline,
+            profile.location,
+            profile.current_company,
+        ]
 
-            # Get recent activities
-            recent_activities = ActivityLog.objects.filter(user=user).order_by(
-                "-created_at"
-            )[:20]
+        completed_fields = sum(1 for field in fields_to_check if field)
+        basic_completion = (
+            completed_fields / len(fields_to_check)
+        ) * 60  # 60% for basic fields
 
-            analytics_data = {
-                "profile_views_data": {
-                    "daily_views": list(profile_views),
-                    "total_views": (
-                        user.stats.profile_views if hasattr(user, "stats") else 0
-                    ),
-                },
-                "connection_growth": {
-                    "daily_connections": list(connections),
-                    "total_connections": (
-                        user.stats.connections_count if hasattr(user, "stats") else 0
-                    ),
-                },
-                "skill_endorsements_data": {
-                    "daily_endorsements": list(endorsements),
-                    "total_endorsements": (
-                        user.stats.endorsements_count if hasattr(user, "stats") else 0
-                    ),
-                },
-                "search_appearances_data": {
-                    "total_appearances": (
-                        user.stats.search_appearances if hasattr(user, "stats") else 0
-                    ),
-                },
-                "top_viewers": UserBasicSerializer(top_viewer_users, many=True).data,
-                "recent_activities": ActivityLogSerializer(
-                    recent_activities, many=True
-                ).data,
-            }
+        # Additional sections (40% total)
+        additional_completion = 0
+        if profile.experience.exists():
+            additional_completion += 10
+        if profile.education.exists():
+            additional_completion += 10
+        if profile.skills.exists():
+            additional_completion += 10
+        if profile.projects.exists():
+            additional_completion += 10
 
-            return Response(analytics_data)
-
-        except Exception as e:
-            logger.error(f"Error getting analytics: {str(e)}", exc_info=True)
-            return Response(
-                {"error": "Failed to get analytics"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+        return basic_completion + additional_completion
 
     @extend_schema(
-        tags=["User Management"],
-        request=ProfileSettingsSerializer,
-        responses={200: UserProfileSerializer},
+        summary="Update Online Status",
+        description="Update user online status",
+        request=OnlineStatusSerializer,
+        responses={200: OnlineStatusSerializer},
     )
-    @action(detail=False, methods=["post"])
-    def update_settings(self, request):
-        """Update user profile settings."""
-        try:
-            profile, created = UserProfile.objects.get_or_create(user=request.user)
+    @action(detail=False, methods=["post"], permission_classes=[IsAuthenticated])
+    def update_online_status(self, request: Request) -> Response:
+        """Update user's online status"""
+        serializer = OnlineStatusSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
-            # Handle different types of settings updates
-            if "profile_visibility" in request.data:
-                profile_settings = ProfileSettingsSerializer(data=request.data)
-                profile_settings.is_valid(raise_exception=True)
+        is_online = serializer.validated_data["is_online"]
+        status_type = serializer.validated_data.get("status", "active")
 
-                for field, value in profile_settings.validated_data.items():
-                    setattr(profile, field, value)
-
-            elif "theme" in request.data:
-                account_settings = AccountSettingsSerializer(data=request.data)
-                account_settings.is_valid(raise_exception=True)
-
-                for field, value in account_settings.validated_data.items():
-                    setattr(profile, field, value)
-
-            elif "data_processing" in request.data:
-                privacy_settings = PrivacySettingsSerializer(data=request.data)
-                privacy_settings.is_valid(raise_exception=True)
-
-                for field, value in privacy_settings.validated_data.items():
-                    setattr(profile, field, value)
-
-            profile.save()
-
-            # Log activity
-            ActivityLog.objects.create(
-                user=request.user,
-                activity_type=ActivityLog.ActivityType.PROFILE_UPDATE,
-                description="Updated profile settings",
-                ip_address=request.META.get("REMOTE_ADDR"),
+        if hasattr(request.user, "profile"):
+            request.user.profile.is_online = is_online
+            request.user.profile.status = status_type
+            if is_online:
+                request.user.profile.update_last_activity()
+            request.user.profile.save(
+                update_fields=["is_online", "status", "last_activity"]
             )
 
-            return Response(UserProfileSerializer(profile).data)
+        return Response({"is_online": is_online, "status": status_type})
 
-        except Exception as e:
-            logger.error(f"Error updating settings: {str(e)}", exc_info=True)
+    @extend_schema(
+        summary="Bulk Operations",
+        description="Perform bulk operations on multiple users",
+        request=BulkOperationSerializer,
+        responses={200: "Bulk operation completed"},
+    )
+    @action(detail=False, methods=["post"], permission_classes=[IsAuthenticated])
+    def bulk_operations(self, request: Request) -> Response:
+        """Perform bulk operations"""
+        serializer = BulkOperationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        operation = serializer.validated_data["operation"]
+        user_ids = serializer.validated_data["user_ids"]
+
+        # Limit bulk operations to prevent abuse
+        if len(user_ids) > 100:
             return Response(
-                {"error": "Failed to update settings"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                {"error": "Maximum 100 users allowed per operation"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        users = User.objects.filter(id__in=user_ids)
+        current_user = request.user
+
+        if operation == "follow":
+            follows_created = 0
+            for user in users:
+                if user != current_user:
+                    _, created = Follow.objects.get_or_create(
+                        follower=current_user, following=user
+                    )
+                    if created:
+                        follows_created += 1
+
+            return Response(
+                {"message": f"Followed {follows_created} users successfully"}
+            )
+
+        elif operation == "connect":
+            connections_created = 0
+            for user in users:
+                if user != current_user:
+                    _, created = Connection.objects.get_or_create(
+                        from_user=current_user,
+                        to_user=user,
+                        defaults={"status": Connection.ConnectionStatus.PENDING},
+                    )
+                    if created:
+                        connections_created += 1
+
+            return Response(
+                {"message": f"Sent {connections_created} connection requests"}
+            )
+
+        else:
+            return Response(
+                {"error": "Invalid operation"}, status=status.HTTP_400_BAD_REQUEST
             )
 
     @extend_schema(
-        tags=["Files"],
-        request=FileUploadSerializer,
-        responses={201: UserFileSerializer},
+        summary="Get Activity Log",
+        description="Get user activity log (owner only)",
+        responses={200: "Activity log data"},
     )
     @action(
-        detail=False, methods=["post"], parser_classes=[MultiPartParser, FormParser]
+        detail=True,
+        methods=["get"],
+        permission_classes=[IsAuthenticated, IsProfileOwner],
     )
-    def upload_file(self, request):
-        """Upload a file (resume, portfolio, etc.)."""
-        try:
-            serializer = FileUploadSerializer(data=request.data)
-            serializer.is_valid(raise_exception=True)
+    def activity_log(self, request: Request, pk=None) -> Response:
+        """Get user's activity log"""
+        user = self.get_object()
 
-            user_file = UserFile.objects.create(
-                user=request.user, **serializer.validated_data
+        logs = ActivityLog.objects.filter(user=user).order_by("-created_at")[:50]
+
+        log_data = []
+        for log in logs:
+            log_data.append(
+                {
+                    "id": log.id,
+                    "activity_type": log.activity_type,
+                    "description": log.description,
+                    "created_at": log.created_at,
+                    "ip_address": log.ip_address,
+                    "metadata": log.metadata,
+                }
             )
 
-            return Response(
-                UserFileSerializer(user_file).data,
-                status=status.HTTP_201_CREATED,
-            )
-
-        except Exception as e:
-            logger.error(f"Error uploading file: {str(e)}", exc_info=True)
-            return Response(
-                {"error": "Failed to upload file"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+        return Response(log_data)
 
     @extend_schema(
-        tags=["User Management"],
-        responses={200: UserBasicSerializer(many=True)},
+        summary="Get Connections Data",
+        description="Get detailed connections data (owner only)",
+        responses={200: "Connections data"},
     )
-    @action(detail=False, methods=["get"])
-    def suggestions(self, request):
-        """Get user connection suggestions based on mutual connections, skills, etc."""
-        try:
-            # Get users with mutual connections
-            user_connections = Connection.objects.filter(
-                Q(from_user=request.user) | Q(to_user=request.user),
-                status=Connection.ConnectionStatus.ACCEPTED,
-            )
-
-            connected_user_ids = set()
-            for conn in user_connections:
-                other_user = (
-                    conn.to_user if conn.from_user == request.user else conn.from_user
-                )
-                connected_user_ids.add(other_user.id)
-
-            # Find users connected to my connections but not to me
-            mutual_connections = Connection.objects.filter(
-                Q(from_user_id__in=connected_user_ids)
-                | Q(to_user_id__in=connected_user_ids),
-                status=Connection.ConnectionStatus.ACCEPTED,
-            ).exclude(Q(from_user=request.user) | Q(to_user=request.user))
-
-            suggested_user_ids = set()
-            for conn in mutual_connections:
-                if conn.from_user_id not in connected_user_ids:
-                    suggested_user_ids.add(conn.from_user_id)
-                if conn.to_user_id not in connected_user_ids:
-                    suggested_user_ids.add(conn.to_user_id)
-
-            # Also suggest users with similar skills
-            user_skills = Skill.objects.filter(user=request.user).values_list(
-                "name", flat=True
-            )
-            if user_skills:
-                similar_skill_users = (
-                    Skill.objects.filter(name__in=user_skills)
-                    .exclude(user=request.user)
-                    .exclude(user_id__in=connected_user_ids)
-                    .values_list("user_id", flat=True)
-                )
-
-                suggested_user_ids.update(similar_skill_users)
-
-            # Get suggested users
-            suggested_users = User.objects.filter(
-                id__in=suggested_user_ids,
-                is_active=True,
-                profile__profile_visibility="public",
-            )[:20]
-
-            serializer = UserBasicSerializer(suggested_users, many=True)
-            return Response(serializer.data)
-
-        except Exception as e:
-            logger.error(f"Error getting suggestions: {str(e)}", exc_info=True)
-            return Response(
-                {"error": "Failed to get suggestions"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-
-    @extend_schema(
-        tags=["Connections"],
-        responses={200: ConnectionSerializer(many=True)},
+    @action(
+        detail=True,
+        methods=["get"],
+        permission_classes=[IsAuthenticated, IsProfileOwner],
     )
-    @action(detail=False, methods=["get"])
-    def connection_requests(self, request):
-        """Get pending connection requests."""
-        try:
-            pending_requests = (
-                Connection.objects.filter(
-                    to_user=request.user,
-                    status=Connection.ConnectionStatus.PENDING,
-                )
-                .select_related("from_user")
-                .order_by("-created_at")
+    def connections_data(self, request: Request, pk=None) -> Response:
+        """Get detailed connections data"""
+        user = self.get_object()
+
+        connections = Connection.objects.filter(
+            Q(from_user=user) | Q(to_user=user)
+        ).select_related("from_user", "to_user")
+
+        data = {
+            "accepted": [],
+            "pending_sent": [],
+            "pending_received": [],
+            "rejected": [],
+        }
+
+        for connection in connections:
+            other_user = (
+                connection.to_user
+                if connection.from_user == user
+                else connection.from_user
             )
+            connection_data = {
+                "id": connection.id,
+                "user": UserBasicSerializer(other_user).data,
+                "created_at": connection.created_at,
+                "status": connection.status,
+            }
 
-            page = self.paginate_queryset(pending_requests)
-            if page is not None:
-                serializer = ConnectionSerializer(page, many=True)
-                return self.get_paginated_response(serializer.data)
+            if connection.status == Connection.ConnectionStatus.ACCEPTED:
+                data["accepted"].append(connection_data)
+            elif connection.status == Connection.ConnectionStatus.PENDING:
+                if connection.from_user == user:
+                    data["pending_sent"].append(connection_data)
+                else:
+                    data["pending_received"].append(connection_data)
+            elif connection.status == Connection.ConnectionStatus.REJECTED:
+                data["rejected"].append(connection_data)
 
-            serializer = ConnectionSerializer(pending_requests, many=True)
-            return Response(serializer.data)
-
-        except Exception as e:
-            logger.error(f"Error getting connection requests: {str(e)}", exc_info=True)
-            return Response(
-                {"error": "Failed to get connection requests"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-
-    @extend_schema(
-        tags=["Connections"],
-        responses={200: ConnectionSerializer},
-    )
-    @action(detail=True, methods=["post"], url_path="accept-connection")
-    def accept_connection(self, request, pk=None):
-        """Accept a connection request."""
-        try:
-            connection = Connection.objects.filter(
-                id=pk,
-                to_user=request.user,
-                status=Connection.ConnectionStatus.PENDING,
-            ).first()
-
-            if not connection:
-                return Response(
-                    {"error": "Connection request not found"},
-                    status=status.HTTP_404_NOT_FOUND,
-                )
-
-            connection.status = Connection.ConnectionStatus.ACCEPTED
-            connection.save()
-
-            # Update connection counts for both users
-            for user in [connection.from_user, connection.to_user]:
-                stats, created = ProfileStats.objects.get_or_create(user=user)
-                stats.connections_count = Connection.objects.filter(
-                    Q(from_user=user) | Q(to_user=user),
-                    status=Connection.ConnectionStatus.ACCEPTED,
-                ).count()
-                stats.save()
-
-            # Create notification
-            Notification.objects.create(
-                recipient=connection.from_user,
-                sender=request.user,
-                notification_type=Notification.NotificationType.CONNECTION_ACCEPTED,
-                title=f"{request.user.get_full_name()} accepted your connection request",
-                message=f"{request.user.get_full_name()} is now connected with you.",
-                data={"connection_id": str(connection.id)},
-            )
-
-            logger.info(
-                f"Connection accepted: {connection.from_user.username} <-> {connection.to_user.username}"
-            )
-            return Response(ConnectionSerializer(connection).data)
-
-        except Exception as e:
-            logger.error(f"Error accepting connection: {str(e)}", exc_info=True)
-            return Response(
-                {"error": "Failed to accept connection"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-
-    @extend_schema(
-        tags=["Connections"],
-        responses={204: None},
-    )
-    @action(detail=True, methods=["post"], url_path="decline-connection")
-    def decline_connection(self, request, pk=None):
-        """Decline a connection request."""
-        try:
-            connection = Connection.objects.filter(
-                id=pk,
-                to_user=request.user,
-                status=Connection.ConnectionStatus.PENDING,
-            ).first()
-
-            if not connection:
-                return Response(
-                    {"error": "Connection request not found"},
-                    status=status.HTTP_404_NOT_FOUND,
-                )
-
-            connection.status = Connection.ConnectionStatus.DECLINED
-            connection.save()
-
-            logger.info(
-                f"Connection declined: {connection.from_user.username} -> {connection.to_user.username}"
-            )
-            return Response(status=status.HTTP_204_NO_CONTENT)
-
-        except Exception as e:
-            logger.error(f"Error declining connection: {str(e)}", exc_info=True)
-            return Response(
-                {"error": "Failed to decline connection"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-
-    @extend_schema(
-        tags=["Notifications"],
-        responses={200: NotificationSerializer(many=True)},
-    )
-    @action(detail=False, methods=["get"])
-    def notifications(self, request):
-        """Get user notifications."""
-        try:
-            notifications = (
-                Notification.objects.filter(recipient=request.user)
-                .select_related("sender")
-                .order_by("-created_at")
-            )
-
-            page = self.paginate_queryset(notifications)
-            if page is not None:
-                serializer = NotificationSerializer(page, many=True)
-                return self.get_paginated_response(serializer.data)
-
-            serializer = NotificationSerializer(notifications, many=True)
-            return Response(serializer.data)
-
-        except Exception as e:
-            logger.error(f"Error getting notifications: {str(e)}", exc_info=True)
-            return Response(
-                {"error": "Failed to get notifications"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-
-    @extend_schema(
-        tags=["Notifications"],
-        responses={200: NotificationSerializer},
-    )
-    @action(detail=True, methods=["post"], url_path="mark-notification-read")
-    def mark_notification_read(self, request, pk=None):
-        """Mark a notification as read."""
-        try:
-            notification = Notification.objects.filter(
-                id=pk,
-                recipient=request.user,
-            ).first()
-
-            if not notification:
-                return Response(
-                    {"error": "Notification not found"},
-                    status=status.HTTP_404_NOT_FOUND,
-                )
-
-            notification.mark_as_read()
-            return Response(NotificationSerializer(notification).data)
-
-        except Exception as e:
-            logger.error(f"Error marking notification as read: {str(e)}", exc_info=True)
-            return Response(
-                {"error": "Failed to mark notification as read"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-
-    @extend_schema(
-        tags=["Messages"],
-        responses={200: MessageSerializer(many=True)},
-    )
-    @action(detail=False, methods=["get"])
-    def messages(self, request):
-        """Get user messages."""
-        try:
-            messages = (
-                Message.objects.filter(
-                    Q(sender=request.user) | Q(recipient=request.user)
-                )
-                .select_related("sender", "recipient")
-                .order_by("-created_at")
-            )
-
-            page = self.paginate_queryset(messages)
-            if page is not None:
-                serializer = MessageSerializer(page, many=True)
-                return self.get_paginated_response(serializer.data)
-
-            serializer = MessageSerializer(messages, many=True)
-            return Response(serializer.data)
-
-        except Exception as e:
-            logger.error(f"Error getting messages: {str(e)}", exc_info=True)
-            return Response(
-                {"error": "Failed to get messages"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+        return Response(data)

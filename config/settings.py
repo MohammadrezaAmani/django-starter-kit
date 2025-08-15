@@ -15,12 +15,23 @@ SECRET_KEY = os.environ.get(
     "DJANGO_SECRET_KEY",
     "django-insecure-96heki=*w5p#^#!6x#k#urqnn=43(a06uyt(#dq_^he6&#l0e!",
 )
-DEBUG = os.environ.get("DJANGO_DEBUG", "True") == "True"
+DEBUG = True  # os.environ.get("DJANGO_DEBUG", "True") == "True"
 ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
 CSRF_TRUSTED_ORIGINS = os.environ.get(
     "DJANGO_CSRF_TRUSTED_ORIGINS",
-    "http://localhost,https://localhost,https://*.bank.test,https://yourdomain.com",
+    "http://localhost,https://localhost,https://*.bank.test,https://yourdomain.com,http://localhost:3000,http://*,http://127.0.0.1:3000,http://localhost:3000",
 ).split(",")
+
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost",
+    "https://localhost",
+    "https://*.bank.test",
+    "https://yourdomain.com",
+    "http://localhost:3000",
+    "http://*",
+    "http://127.0.0.1:3000",
+    "http://localhost:3000",
+]
 SECURE_SSL_REDIRECT = not DEBUG
 SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SECURE = not DEBUG
@@ -117,12 +128,11 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
-LANGUAGE_CODE = "fa"
+LANGUAGE_CODE = "en"
 TIME_ZONE = "Asia/Tehran"
 USE_I18N = True
 USE_TZ = True
 LANGUAGES = [
-    ("fa", _("Persian")),
     ("en", _("English")),
 ]
 LOCALE_PATHS = [BASE_DIR / "locale"]
@@ -147,7 +157,7 @@ REST_FRAMEWORK = {
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": [
-        "rest_framework.permissions.IsAuthenticated",
+        "rest_framework.permissions.AllowAny",
     ],
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_VERSIONING_CLASS": "apps.chats.versioning.CustomHeaderVersioning",
@@ -160,6 +170,7 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "anon": "100/hour",
         "user": "1000/hour",
+        "login": "5000/minute",
     },
 }
 
@@ -347,21 +358,36 @@ LOGGING = {
     },
 }
 
-CORS_ALLOW_ALL_ORIGINS = DEBUG
 CORS_ALLOWED_ORIGINS = os.environ.get(
     "CORS_ALLOWED_ORIGINS",
     "http://localhost:8000,https://yourdomain.com,https://*.bank.test",
 ).split(",")
+
+CORS_ALLOW_ALL_ORIGINS = DEBUG
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:8000",
+    "https://yourdomain.com",
+    "https://*.bank.test",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
 CORS_ALLOW_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
 CORS_ALLOW_HEADERS = [
     "accept",
     "authorization",
     "content-type",
+    "referer",
     "x-csrftoken",
     "x-requested-with",
+    "x-api-key",
 ]
 
-RATELIMIT_ENABLE = True
+CSP_CONNECT_SRC = (
+    "'self'",
+    "http://127.0.0.1:8000",
+    "http://localhost:8000",
+)
+RATELIMIT_ENABLE = False
 RATELIMIT_CACHE = "default"
 RATELIMIT_KEY = "user_or_ip"
 RATELIMIT_RATE = "100/m"
