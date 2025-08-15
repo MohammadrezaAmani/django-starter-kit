@@ -1,0 +1,9 @@
+{% extends "admin/change_form.html" %}
+{% load i18n %}
+{% block after_field_sets %}
+{{ block.super }}
+<div class="module aligned">
+  <h2>{% trans "Invite Actions" %}</h2>
+  <div class="form-row">{{ adminform.form.generate_invite_button }}</div>
+</div>
+{% endblock %}

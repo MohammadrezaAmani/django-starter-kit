@@ -54,11 +54,13 @@ INSTALLED_APPS = [
     "debug_toolbar",
     "silk",
     "apps.accounts",
+    "apps.chats",
     "apps.notifications",
     "apps.audit_log",
     "apps.common",
     "apps.payment",
     "apps.feedback",
+    "django_extensions",
 ]
 
 MIDDLEWARE = [
@@ -146,6 +148,9 @@ REST_FRAMEWORK = {
         "rest_framework.permissions.IsAuthenticated",
     ],
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "DEFAULT_VERSIONING_CLASS": "apps.chats.versioning.CustomHeaderVersioning",
+    "DEFAULT_VERSION": "v1",
+    "ALLOWED_VERSIONS": ["v1"],
     "DEFAULT_THROTTLE_CLASSES": [
         "rest_framework.throttling.AnonRateThrottle",
         "rest_framework.throttling.UserRateThrottle",

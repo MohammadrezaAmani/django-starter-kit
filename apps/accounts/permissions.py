@@ -63,6 +63,36 @@ class IsOwnerOrAdmin(permissions.BasePermission):
         return False
 
 
+class IsChatOwnerOrAdmin(permissions.BasePermission):
+    """
+    Custom permission for chat objects that checks creator field.
+    """
+
+    def has_object_permission(self, request, view, obj):
+        # Admin users can always edit
+        if request.user and request.user.is_staff:
+            return True
+
+        # Check if user is the chat creator
+        if hasattr(obj, "creator"):
+            return obj.creator == request.user
+
+        # Check if user is an admin participant in the chat
+        if hasattr(obj, "chatparticipant_set"):
+            try:
+                from apps.chats.models import ChatParticipant
+
+                participant = obj.chatparticipant_set.get(user=request.user)
+                return participant.role in [
+                    ChatParticipant.ParticipantRole.OWNER,
+                    ChatParticipant.ParticipantRole.ADMIN,
+                ]
+            except:
+                pass
+
+        return False
+
+
 class IsOwnerOrReadOnly(permissions.BasePermission):
     """
     Custom permission to only allow owners to edit, but allow read access to others.

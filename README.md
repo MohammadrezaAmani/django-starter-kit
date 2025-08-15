@@ -87,12 +87,14 @@ The project uses Python 3.13+ and includes the following key dependencies (see `
 ## Installation
 
 1. **Clone the Repository**:
+
    ```bash
    git clone https://github.com/MohammadrezaAmani/django-starter-kit
    cd django-starter-kit
    ```
 
 2. **Set Up Virtual Environment and Install Dependencies**:
+
    ```bash
    pip install uv
    uv venv
@@ -100,8 +102,9 @@ The project uses Python 3.13+ and includes the following key dependencies (see `
    uv sync
    ```
 
-4. **Configure Environment Variables**:
+3. **Configure Environment Variables**:
    Create a `.env` file in the project root with the following variables:
+
    ```plaintext
    DJANGO_SECRET_KEY=your-secret-key
    DJANGO_DEBUG=False
@@ -129,19 +132,21 @@ The project uses Python 3.13+ and includes the following key dependencies (see `
    PAYV1_MERCHANT_CODE=your-payv1-merchant-code
    ```
 
-5. **Run Migrations**:
+4. **Run Migrations**:
+
    ```bash
    uv run manage.py migrate
    ```
 
-6. **Start Redis and Celery**:
+5. **Start Redis and Celery**:
    Ensure Redis is running, then start Celery:
+
    ```bash
    uv run celery -A config.celery worker --loglevel=info
    uv run celery -A config.celery beat --loglevel=info
    ```
 
-7. **Run the Development Server**:
+6. **Run the Development Server**:
    ```bash
    uv run python manage.py runserver
    ```
@@ -172,6 +177,7 @@ Key configurations are defined in `config/settings.py`:
 ## Testing
 
 Run tests with pytest:
+
 ```bash
 uv run pytest
 ```
