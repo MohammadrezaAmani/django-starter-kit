@@ -8,6 +8,7 @@ from django.utils import timezone
 
 from apps.accounts.models import (
     Connection,
+    Education,
     Experience,
     Follow,
     Notification,
