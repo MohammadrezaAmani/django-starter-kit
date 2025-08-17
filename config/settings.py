@@ -17,6 +17,8 @@ SECRET_KEY = os.environ.get(
 )
 DEBUG = True  # os.environ.get("DJANGO_DEBUG", "True") == "True"
 ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+ALLOWED_HOSTS = ["*"]
+
 CSRF_TRUSTED_ORIGINS = os.environ.get(
     "DJANGO_CSRF_TRUSTED_ORIGINS",
     "http://localhost,https://localhost,https://*.bank.test,https://yourdomain.com,http://localhost:3000,http://*,http://127.0.0.1:3000,http://localhost:3000",
@@ -310,6 +312,10 @@ LOGGING = {
             "style": "{",
         },
     },
+    "root": {
+        "handlers": ["console"],
+        "level": "DEBUG",
+    },
     "handlers": {
         "file": {
             "level": "INFO",
@@ -451,4 +457,16 @@ AZ_IRANIAN_BANK_GATEWAYS = {
     "IS_SAFE_GET_GATEWAY_PAYMENT": True,
     "CUSTOM_APP": "payment",
     "CALLBACK_NAMESPACE": "payment:callback",
+}
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "console": {"class": "logging.StreamHandler"},
+    },
+    "loggers": {
+        "django.channels": {"handlers": ["console"], "level": "DEBUG"},
+        "daphne": {"handlers": ["console"], "level": "DEBUG"},
+    },
 }

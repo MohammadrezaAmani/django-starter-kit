@@ -43,6 +43,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def connect(self):
         """Handle WebSocket connection."""
+        print(self.scope)
+        print("kir")
         try:
             # Extract chat ID from URL
             self.chat_id = self.scope["url_route"]["kwargs"]["chat_id"]
@@ -166,11 +168,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def authenticate_user(self):
         """Authenticate user from query parameters or headers."""
+        print(self.scope)
         try:
             # Try to get token from query parameters
             query_string = self.scope.get("query_string", b"").decode()
             token = None
-
+            print(query_string)
             for param in query_string.split("&"):
                 if param.startswith("token="):
                     token = param.split("=", 1)[1]

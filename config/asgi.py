@@ -15,6 +15,7 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 
 # Chat WebSocket URL patterns
 chat_websocket_urlpatterns = [
+    re_path(r"ws/chat/$", ChatConsumer.as_asgi()),
     re_path(r"ws/chat/(?P<chat_id>[0-9a-f-]+)/$", ChatConsumer.as_asgi()),
     re_path(r"ws/notifications/$", NotificationConsumer.as_asgi()),
 ]
