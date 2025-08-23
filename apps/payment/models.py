@@ -9,9 +9,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.core.files import File
 from django.db import models
 from django.utils.translation import gettext_lazy as _
-from encrypted_model_fields.fields import (
-    EncryptedCharField,
-)
+from encrypted_model_fields.fields import EncryptedCharField
 
 User = get_user_model()
 

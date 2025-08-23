@@ -11,12 +11,7 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from apps.chats.models import (
-    Chat,
-    ChatFolder,
-    ChatMessage,
-    ChatParticipant,
-)
+from apps.chats.models import Chat, ChatFolder, ChatMessage, ChatParticipant
 from apps.chats.serializers import (
     ChatListSerializer,
     ChatMessageSerializer,

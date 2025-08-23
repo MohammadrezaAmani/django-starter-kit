@@ -22,9 +22,7 @@ from apps.accounts.models import (
     UserFile,
     UserProfile,
 )
-from apps.accounts.signals import (
-    create_user_profile,
-)
+from apps.accounts.signals import create_user_profile
 
 User = get_user_model()
 

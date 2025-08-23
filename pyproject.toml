@@ -45,4 +45,5 @@ dependencies = [
     "psutil>=7.0.0",
     "ipython>=9.4.0",
     "faker>=37.5.3",
+    "django-taggit>=6.1.0",
 ]

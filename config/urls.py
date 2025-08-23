@@ -1,4 +1,6 @@
 from django.conf import settings
+
+from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
 from drf_spectacular.views import (
@@ -6,9 +8,6 @@ from drf_spectacular.views import (
     SpectacularRedocView,
     SpectacularSwaggerView,
 )
-
-# statics and medias
-from django.conf.urls.static import static
 
 urlpatterns = (
     [
@@ -29,6 +28,7 @@ urlpatterns = (
         path("feedback/", include("apps.feedback.urls")),
         path("silk/", include("silk.urls", namespace="silk")),
         path("events/", include("apps.events.urls", namespace="events")),
+        path("core/", include("apps.course.urls", namespace="course")),
     ]
     + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
     + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

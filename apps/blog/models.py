@@ -13,12 +13,10 @@ from django.contrib.contenttypes.models import ContentType
 
 # from django.contrib.postgres.fields import ArrayField  # Commented out for SQLite compatibility
 # from django.contrib.postgres.indexes import GinIndex  # Commented out for SQLite compatibility
-from django.contrib.postgres.search import (
+from django.contrib.postgres.search import (  # SearchVector,; SearchVectorField,; Commented out for SQLite compatibility
     SearchQuery,
     SearchRank,
-    # SearchVector,
-    # SearchVectorField,
-)  # Commented out for SQLite compatibility
+)
 from django.core.validators import (
     FileExtensionValidator,
     MaxValueValidator,

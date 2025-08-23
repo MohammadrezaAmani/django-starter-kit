@@ -108,9 +108,9 @@ class SecurityMixin:
             "method": request.method,
             "path": request.path,
             "user_id": request.user.id if request.user.is_authenticated else None,
-            "user_username": request.user.username
-            if request.user.is_authenticated
-            else None,
+            "user_username": (
+                request.user.username if request.user.is_authenticated else None
+            ),
         }
 
     def log_security_event(

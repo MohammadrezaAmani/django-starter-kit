@@ -157,9 +157,11 @@ class LoginView(SecurityMixin, APIView):
         try:
             ActivityLog.objects.create(
                 user=user,
-                activity_type=ActivityLog.ActivityType.LOGIN
-                if action == "login"
-                else ActivityLog.ActivityType.LOGIN_FAILED,
+                activity_type=(
+                    ActivityLog.ActivityType.LOGIN
+                    if action == "login"
+                    else ActivityLog.ActivityType.LOGIN_FAILED
+                ),
                 description=f"{action} {'successful' if success else 'failed'}",
                 ip_address=get_client_ip(request),
                 user_agent=get_user_agent(request),
@@ -272,15 +274,21 @@ class LoginView(SecurityMixin, APIView):
             **tokens,
             "user": user_serializer.data,
             "user_config": {
-                "theme": getattr(user.profile, "theme", "light")
-                if hasattr(user, "profile")
-                else "light",
-                "language": getattr(user.profile, "language", "en")
-                if hasattr(user, "profile")
-                else "en",
-                "timezone": getattr(user.profile, "timezone", "UTC")
-                if hasattr(user, "profile")
-                else "UTC",
+                "theme": (
+                    getattr(user.profile, "theme", "light")
+                    if hasattr(user, "profile")
+                    else "light"
+                ),
+                "language": (
+                    getattr(user.profile, "language", "en")
+                    if hasattr(user, "profile")
+                    else "en"
+                ),
+                "timezone": (
+                    getattr(user.profile, "timezone", "UTC")
+                    if hasattr(user, "profile")
+                    else "UTC"
+                ),
             },
         }
 

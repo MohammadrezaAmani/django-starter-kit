@@ -1,6 +1,9 @@
 import logging
 
 from django.contrib.auth import get_user_model
+
+# from apps.accounts.views.user import UserRateThrottle
+from django.db.models import Q
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema
 from rest_framework import filters, permissions, status, viewsets
@@ -14,9 +17,6 @@ from apps.events.views import StandardResultsSetPagination
 from ...models import ActivityLog, Certification
 from ...permissions import IsOwnerOrAdmin, can_view_user_profile
 from ...serializers import CertificationSerializer
-
-# from apps.accounts.views.user import UserRateThrottle
-from django.db.models import Q
 
 logger = logging.getLogger(__name__)
 User = get_user_model()

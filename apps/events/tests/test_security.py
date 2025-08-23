@@ -11,11 +11,7 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient, APITestCase
 
-from ..models import (
-    Event,
-    EventAttachment,
-    Participant,
-)
+from ..models import Event, EventAttachment, Participant
 
 User = get_user_model()
 

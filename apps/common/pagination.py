@@ -70,12 +70,14 @@ class CustomPageNumberPagination(PageNumberPagination):
                     "page_size": self.page.paginator.per_page,
                     "has_next": self.page.has_next(),
                     "has_previous": self.page.has_previous(),
-                    "next_page": self.page.next_page_number()
-                    if self.page.has_next()
-                    else None,
-                    "previous_page": self.page.previous_page_number()
-                    if self.page.has_previous()
-                    else None,
+                    "next_page": (
+                        self.page.next_page_number() if self.page.has_next() else None
+                    ),
+                    "previous_page": (
+                        self.page.previous_page_number()
+                        if self.page.has_previous()
+                        else None
+                    ),
                     "start_index": self.page.start_index(),
                     "end_index": self.page.end_index(),
                 },
@@ -304,9 +306,9 @@ class OptimizedPagination(CustomPageNumberPagination):
                     "has_next": lambda: has_next,
                     "has_previous": lambda: page_number > 1,
                     "next_page_number": lambda: page_number + 1 if has_next else None,
-                    "previous_page_number": lambda: page_number - 1
-                    if page_number > 1
-                    else None,
+                    "previous_page_number": lambda: (
+                        page_number - 1 if page_number > 1 else None
+                    ),
                     "start_index": lambda: offset + 1 if page_results else 0,
                     "end_index": lambda: offset + len(page_results),
                     "paginator": type(
@@ -355,12 +357,16 @@ class OptimizedPagination(CustomPageNumberPagination):
                         "page_size": self.page.paginator.per_page,
                         "has_next": self.page.has_next(),
                         "has_previous": self.page.has_previous(),
-                        "next_page": self.page.next_page_number()
-                        if self.page.has_next()
-                        else None,
-                        "previous_page": self.page.previous_page_number()
-                        if self.page.has_previous()
-                        else None,
+                        "next_page": (
+                            self.page.next_page_number()
+                            if self.page.has_next()
+                            else None
+                        ),
+                        "previous_page": (
+                            self.page.previous_page_number()
+                            if self.page.has_previous()
+                            else None
+                        ),
                         "start_index": self.page.start_index(),
                         "end_index": self.page.end_index(),
                         "estimated": True,

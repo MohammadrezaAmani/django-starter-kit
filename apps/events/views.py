@@ -4,13 +4,7 @@ from datetime import timedelta
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.db import transaction
-from django.db.models import (
-    Avg,
-    Count,
-    F,
-    Prefetch,
-    Q,
-)
+from django.db.models import Avg, Count, F, Prefetch, Q
 from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page

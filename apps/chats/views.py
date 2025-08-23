@@ -17,10 +17,7 @@ from rest_framework.views import APIView
 
 logger = logging.getLogger(__name__)
 
-from apps.accounts.permissions import (
-    IsChatOwnerOrAdmin,
-    RateLimitedPermission,
-)
+from apps.accounts.permissions import IsChatOwnerOrAdmin, RateLimitedPermission
 
 from .models import (
     Chat,

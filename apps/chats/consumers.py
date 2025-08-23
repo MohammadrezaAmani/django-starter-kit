@@ -12,13 +12,7 @@ from jwt import decode as jwt_decode
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.tokens import UntypedToken
 
-from .models import (
-    Chat,
-    ChatCache,
-    ChatCall,
-    ChatMessage,
-    ChatParticipant,
-)
+from .models import Chat, ChatCache, ChatCall, ChatMessage, ChatParticipant
 
 User = get_user_model()
 logger = logging.getLogger(__name__)

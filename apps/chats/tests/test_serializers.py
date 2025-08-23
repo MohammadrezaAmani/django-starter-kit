@@ -7,12 +7,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import RequestFactory, TestCase
 from django.utils import timezone
 
-from apps.chats.models import (
-    Chat,
-    ChatAttachment,
-    ChatMessage,
-    ChatParticipant,
-)
+from apps.chats.models import Chat, ChatAttachment, ChatMessage, ChatParticipant
 from apps.chats.serializers import (
     BulkMessageDeleteSerializer,
     BulkMessageReadSerializer,

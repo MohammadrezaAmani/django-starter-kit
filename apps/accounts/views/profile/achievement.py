@@ -15,7 +15,6 @@ from ...models import Achievement, ActivityLog
 from ...permissions import IsOwnerOrAdmin, can_view_user_profile
 from ...serializers import AchievementSerializer
 
-
 logger = logging.getLogger(__name__)
 User = get_user_model()
 

@@ -11,12 +11,7 @@ from guardian.shortcuts import assign_perm
 from rest_framework import status
 from rest_framework.test import APIClient, APITestCase
 
-from ..models import (
-    Event,
-    EventAnalytics,
-    Participant,
-    Session,
-)
+from ..models import Event, EventAnalytics, Participant, Session
 from ..permissions import (
     CanAccessAnalytics,
     CanModerateEvent,

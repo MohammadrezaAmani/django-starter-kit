@@ -10,11 +10,12 @@ from rest_framework import filters, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+from apps.accounts.views.user import UserRateThrottle
+from apps.events.views import StandardResultsSetPagination
+
 from ...models import ActivityLog, Notification, Task, TaskComment
 from ...permissions import IsTaskAssigneeOrCreator
 from ...serializers import TaskCommentSerializer, TaskSerializer
-from apps.accounts.views.user import UserRateThrottle
-from apps.events.views import StandardResultsSetPagination
 
 logger = logging.getLogger(__name__)
 User = get_user_model()

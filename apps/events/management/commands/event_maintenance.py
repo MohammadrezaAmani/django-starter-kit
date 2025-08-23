@@ -188,9 +188,7 @@ class Command(BaseCommand):
                     events__status__in=["published", "live"],
                 )
                 .annotate(recent_usage=models.Count("events"))
-                .filter(
-                    recent_usage__gte=3  # Used in at least 3 recent events
-                )
+                .filter(recent_usage__gte=3)  # Used in at least 3 recent events
                 .order_by("-recent_usage")[:10]
             )
 

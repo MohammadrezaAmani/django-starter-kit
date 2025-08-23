@@ -9,11 +9,12 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 
+from apps.accounts.views.user import UserRateThrottle
+from apps.events.views import StandardResultsSetPagination
+
 from ...models import ActivityLog, Publication
 from ...permissions import IsOwnerOrAdmin, can_view_user_profile
 from ...serializers import PublicationSerializer
-from apps.accounts.views.user import UserRateThrottle
-from apps.events.views import StandardResultsSetPagination
 
 logger = logging.getLogger(__name__)
 User = get_user_model()

@@ -9,11 +9,12 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 
+from apps.accounts.views.user import UserRateThrottle
+from apps.events.views import StandardResultsSetPagination
+
 from ...models import ActivityLog, Notification, ProfileStats, Skill, SkillEndorsement
 from ...permissions import IsOwnerOrAdmin, can_endorse_skill, can_view_user_profile
 from ...serializers import SkillEndorsementSerializer, SkillSerializer
-from apps.accounts.views.user import UserRateThrottle
-from apps.events.views import StandardResultsSetPagination
 
 logger = logging.getLogger(__name__)
 User = get_user_model()

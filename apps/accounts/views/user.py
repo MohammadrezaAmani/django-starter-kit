@@ -7,7 +7,7 @@ from django.db import models
 from django.db.models import Case, Count, F, Q, When
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
-from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter
+from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view
 from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
@@ -25,11 +25,7 @@ from apps.accounts.models import (
     SkillEndorsement,
     UserProfile,
 )
-from apps.accounts.permissions import (
-    IsOwnerOrReadOnly,
-    IsProfileOwner,
-    CanViewProfile,
-)
+from apps.accounts.permissions import CanViewProfile, IsOwnerOrReadOnly, IsProfileOwner
 from apps.accounts.serializers import (
     BulkOperationSerializer,
     ConnectionRequestSerializer,

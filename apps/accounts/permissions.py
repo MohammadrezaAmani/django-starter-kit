@@ -1,13 +1,7 @@
 from django.contrib.auth import get_user_model
 from rest_framework import permissions
 
-from .models import (
-    Connection,
-    Department,
-    NetworkMembership,
-    UserDepartment,
-    UserRole,
-)
+from .models import Connection, Department, NetworkMembership, UserDepartment, UserRole
 
 User = get_user_model()
 

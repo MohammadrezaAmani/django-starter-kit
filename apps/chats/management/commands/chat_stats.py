@@ -189,9 +189,9 @@ class Command(BaseCommand):
 
         # Reactions statistics
         messages_with_reactions = recent_queryset.exclude(reactions={})
-        self.stats["messages"]["messages_with_reactions"] = (
-            messages_with_reactions.count()
-        )
+        self.stats["messages"][
+            "messages_with_reactions"
+        ] = messages_with_reactions.count()
 
         total_reactions = 0
         for message in messages_with_reactions:
@@ -364,7 +364,9 @@ class Command(BaseCommand):
         user_metrics = []
         active_users = User.objects.filter(
             sent_messages__created_at__gte=self.start_date
-        ).distinct()[:20]  # Limit to top 20 for performance
+        ).distinct()[
+            :20
+        ]  # Limit to top 20 for performance
 
         for user in active_users:
             metrics = {

@@ -58,8 +58,8 @@ from apps.blog.models import (
     BlogNewsletter,
     BlogPost,
     BlogPostVersion,
-    BlogReadingList,
     BlogReaction,
+    BlogReadingList,
     BlogSeries,
     BlogSeriesPost,
     BlogSubscription,
@@ -559,9 +559,11 @@ class Command(BaseCommand):
                     category=random.choice(Project.ProjectCategory.choices)[0],
                     status=random.choice(Project.ProjectStatus.choices)[0],
                     start_date=fake.date_between(start_date="-2y", end_date="today"),
-                    end_date=fake.date_between(start_date="-1y", end_date="today")
-                    if random.random() < 0.6
-                    else None,
+                    end_date=(
+                        fake.date_between(start_date="-1y", end_date="today")
+                        if random.random() < 0.6
+                        else None
+                    ),
                 )
 
                 # Add project images
@@ -1480,20 +1482,20 @@ class Command(BaseCommand):
             chat = self.safe_create(
                 Chat,
                 title=fake.company() if random.random() < 0.7 else None,
-                description=fake.text(max_nb_chars=500)
-                if random.random() < 0.5
-                else "",
+                description=(
+                    fake.text(max_nb_chars=500) if random.random() < 0.5 else ""
+                ),
                 chat_type=random.choice(Chat.ChatType.choices)[0],
                 status=random.choice(Chat.ChatStatus.choices)[0],
                 creator=random.choice(users),
                 is_public=random.choice([True, False]),
-                max_participants=random.randint(2, 200)
-                if random.random() < 0.8
-                else None,
+                max_participants=(
+                    random.randint(2, 200) if random.random() < 0.8 else None
+                ),
                 slow_mode_delay=random.randint(0, 300) if random.random() < 0.3 else 0,
-                auto_delete_timer=random.randint(3600, 86400)
-                if random.random() < 0.2
-                else None,
+                auto_delete_timer=(
+                    random.randint(3600, 86400) if random.random() < 0.2 else None
+                ),
             )
             if chat:
                 chats.append(chat)
@@ -1724,12 +1726,14 @@ class Command(BaseCommand):
                 ip_address=fake.ipv4(),
                 user_agent=fake.user_agent(),
                 object_repr=fake.sentence(),
-                changes={
-                    "before": {"status": fake.word()},
-                    "after": {"status": fake.word()},
-                }
-                if random.random() < 0.6
-                else {},
+                changes=(
+                    {
+                        "before": {"status": fake.word()},
+                        "after": {"status": fake.word()},
+                    }
+                    if random.random() < 0.6
+                    else {}
+                ),
                 metadata={
                     "request_method": random.choice(["GET", "POST", "PUT", "DELETE"]),
                     "request_url": fake.url(),
