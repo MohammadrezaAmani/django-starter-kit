@@ -94,7 +94,7 @@ class TestPaymentCRUD:
             mock_bank.ready.return_value = bank_models.Bank(
                 tracking_code="test_tracking_code", token="test_token", bank_type="SEP"
             )
-            response = api_client.post("/payment/api/payments/", data)
+            response = api_client.post("/payment/payments/", data)
         assert response.status_code == status.HTTP_201_CREATED
         payment = Payment.objects.get()  # type: ignore
         assert payment.user == user

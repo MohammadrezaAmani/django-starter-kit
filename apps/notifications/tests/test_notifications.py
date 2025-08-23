@@ -181,7 +181,7 @@ class TestNotificationAPI:
             channels=[Notification.Channel.IN_APP],
             category="system",
         )
-        response = api_client.get("/notifications/api/notifications/")
+        response = api_client.get("/notifications/notifications/")
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data) == 1
         assert response.data[0]["message"] == "Test notification"
@@ -195,7 +195,7 @@ class TestNotificationAPI:
             channels=[Notification.Channel.IN_APP],
             expires_at=timezone.now() - timezone.timedelta(days=1),
         )
-        response = api_client.get("/notifications/api/notifications/")
+        response = api_client.get("/notifications/notifications/")
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data) == 0
 
@@ -208,7 +208,7 @@ class TestNotificationAPI:
             channels=[Notification.Channel.IN_APP],
         )
         response = api_client.post(
-            f"/notifications/api/notifications/{notification.id}/mark_read/"
+            f"/notifications/notifications/{notification.id}/mark_read/"
         )
         assert response.status_code == status.HTTP_200_OK
         notification.refresh_from_db()

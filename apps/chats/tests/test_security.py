@@ -52,16 +52,16 @@ class AuthenticationSecurityTestCase(APITestCase):
     def test_unauthenticated_access_blocked(self):
         """Test that unauthenticated users cannot access chat endpoints."""
         # Test chat list
-        response = self.client.get("/api/chats/")
+        response = self.client.get("/chats/")
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
         # Test chat detail
-        response = self.client.get(f"/api/chats/{self.chat.id}/")
+        response = self.client.get(f"/chats/{self.chat.id}/")
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
         # Test message creation
         response = self.client.post(
-            f"/api/chats/{self.chat.id}/messages/", {"content": "Unauthorized message"}
+            f"/chats/{self.chat.id}/messages/", {"content": "Unauthorized message"}
         )
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
@@ -70,12 +70,12 @@ class AuthenticationSecurityTestCase(APITestCase):
         self.client.force_authenticate(user=self.user2)
 
         # Should not be able to view private chat
-        response = self.client.get(f"/api/chats/{self.chat.id}/")
+        response = self.client.get(f"/chats/{self.chat.id}/")
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
         # Should not be able to send messages
         response = self.client.post(
-            f"/api/chats/{self.chat.id}/messages/", {"content": "Unauthorized message"}
+            f"/chats/{self.chat.id}/messages/", {"content": "Unauthorized message"}
         )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
@@ -89,7 +89,7 @@ class AuthenticationSecurityTestCase(APITestCase):
         self.client.force_authenticate(user=self.user2)
 
         # Should be able to view chat
-        response = self.client.get(f"/api/chats/{self.chat.id}/")
+        response = self.client.get(f"/chats/{self.chat.id}/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_banned_user_access_blocked(self):
@@ -106,7 +106,7 @@ class AuthenticationSecurityTestCase(APITestCase):
 
         # Should not be able to send messages
         response = self.client.post(
-            f"/api/chats/{self.chat.id}/messages/", {"content": "Banned user message"}
+            f"/chats/{self.chat.id}/messages/", {"content": "Banned user message"}
         )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
@@ -121,12 +121,12 @@ class AuthenticationSecurityTestCase(APITestCase):
 
         # Should not be able to update chat settings
         response = self.client.patch(
-            f"/api/chats/{self.chat.id}/", {"name": "Hacked Chat Name"}
+            f"/chats/{self.chat.id}/", {"name": "Hacked Chat Name"}
         )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
         # Should not be able to delete chat
-        response = self.client.delete(f"/api/chats/{self.chat.id}/")
+        response = self.client.delete(f"/chats/{self.chat.id}/")
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
 
@@ -548,14 +548,14 @@ class SessionSecurityTestCase(APITestCase):
         self.client.force_authenticate(user=self.user)
 
         # Make authenticated request
-        response = self.client.get("/api/chats/")
+        response = self.client.get("/chats/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         # Simulate expired session
         self.client.force_authenticate(user=None)
 
         # Should require re-authentication
-        response = self.client.get("/api/chats/")
+        response = self.client.get("/chats/")
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_csrf_protection(self):

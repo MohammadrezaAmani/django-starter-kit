@@ -397,7 +397,7 @@ class APIPerformanceTestCase(APITestCase):
 
     def test_event_list_api_performance(self):
         """Test event list API response time."""
-        url = "/api/v1/events/"
+        url = "/v1/events/"
 
         start_time = time.time()
         response = self.client.get(url)
@@ -410,7 +410,7 @@ class APIPerformanceTestCase(APITestCase):
     def test_event_detail_api_performance(self):
         """Test event detail API response time."""
         event = self.events[0]
-        url = f"/api/v1/events/{event.id}/"
+        url = f"/v1/events/{event.id}/"
 
         start_time = time.time()
         response = self.client.get(url)
@@ -422,7 +422,7 @@ class APIPerformanceTestCase(APITestCase):
 
     def test_event_search_performance(self):
         """Test event search API performance."""
-        url = "/api/v1/events/?search=Event"
+        url = "/v1/events/?search=Event"
 
         start_time = time.time()
         response = self.client.get(url)
@@ -437,7 +437,7 @@ class APIPerformanceTestCase(APITestCase):
         self.client.force_authenticate(user=self.user)
 
         event = self.events[0]
-        url = f"/api/v1/events/{event.id}/register/"
+        url = f"/v1/events/{event.id}/register/"
 
         start_time = time.time()
         response = self.client.post(url)
@@ -462,7 +462,7 @@ class APIPerformanceTestCase(APITestCase):
 
         # Test first page
         start_time = time.time()
-        response = self.client.get("/api/v1/events/?page=1&page_size=20")
+        response = self.client.get("/v1/events/?page=1&page_size=20")
         duration = time.time() - start_time
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -470,7 +470,7 @@ class APIPerformanceTestCase(APITestCase):
 
         # Test middle page
         start_time = time.time()
-        response = self.client.get("/api/v1/events/?page=3&page_size=20")
+        response = self.client.get("/v1/events/?page=3&page_size=20")
         duration = time.time() - start_time
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)

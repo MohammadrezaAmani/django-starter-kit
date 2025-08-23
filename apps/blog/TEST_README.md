@@ -73,7 +73,7 @@ python manage.py test apps.blog.tests -v 2
 
 ### 2. Model Tests
 - **Purpose**: Test model methods, properties, and business logic
-- **Coverage**: 
+- **Coverage**:
   - Model creation and validation
   - Custom querysets and managers
   - Model methods and properties
@@ -137,23 +137,23 @@ python manage.py test apps.blog.tests -v 2
 ## API Endpoints Tested
 
 ### Public Endpoints
-- `GET /api/blog/posts/` - List posts
-- `GET /api/blog/posts/{id}/` - Post detail
-- `GET /api/blog/categories/` - List categories
-- `GET /api/blog/tags/` - List tags
-- `GET /api/blog/search/` - Search posts
+- `GET /blog/posts/` - List posts
+- `GET /blog/posts/{id}/` - Post detail
+- `GET /blog/categories/` - List categories
+- `GET /blog/tags/` - List tags
+- `GET /blog/search/` - Search posts
 
 ### Authenticated Endpoints
-- `POST /api/blog/posts/` - Create post
-- `PUT/PATCH /api/blog/posts/{id}/` - Update post
-- `DELETE /api/blog/posts/{id}/` - Delete post
-- `POST /api/blog/posts/{id}/react/` - React to post
-- `POST /api/blog/comments/` - Create comment
+- `POST /blog/posts/` - Create post
+- `PUT/PATCH /blog/posts/{id}/` - Update post
+- `DELETE /blog/posts/{id}/` - Delete post
+- `POST /blog/posts/{id}/react/` - React to post
+- `POST /blog/comments/` - Create comment
 
 ### Admin/Moderator Endpoints
-- `POST /api/blog/posts/{id}/moderate/` - Moderate post
-- `GET /api/blog/dashboard/` - Dashboard stats
-- `POST /api/blog/bulk-actions/` - Bulk operations
+- `POST /blog/posts/{id}/moderate/` - Moderate post
+- `GET /blog/dashboard/` - Dashboard stats
+- `POST /blog/bulk-actions/` - Bulk operations
 
 ## Test Data and Utilities
 

@@ -219,7 +219,7 @@ SPECTACULAR_SETTINGS = {
     "POSTPROCESSING_HOOKS": ["drf_spectacular.hooks.postprocess_schema_enums"],
     "COMPONENT_SPLIT_REQUEST": True,
     "SORT_OPERATIONS": True,
-    "SCHEMA_PATH_PREFIX": r"/api/v1",
+    "SCHEMA_PATH_PREFIX": r"/v1",
 }
 
 SIMPLE_JWT = {

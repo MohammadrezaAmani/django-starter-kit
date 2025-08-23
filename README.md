@@ -167,11 +167,11 @@ Key configurations are defined in `config/settings.py`:
 
 ## Usage
 
-- **Authentication**: Use `/api/v1/accounts/` endpoints for registration, login, and JWT token management.
+- **Authentication**: Use `/v1/accounts/` endpoints for registration, login, and JWT token management.
 - **WebSocket Notifications**: Connect to WebSocket endpoints in `notifications/consumers.py`.
-- **API**: Access REST API endpoints with filtering, search, and pagination at `/api/v1/`.
-- **Payments**: Process payments via Iranian gateways using `/api/v1/payment/` endpoints.
-- **Feedback**: Collect feedback via `/api/v1/feedback/` endpoints.
+- **API**: Access REST API endpoints with filtering, search, and pagination at `/v1/`.
+- **Payments**: Process payments via Iranian gateways using `/v1/payment/` endpoints.
+- **Feedback**: Collect feedback via `/v1/feedback/` endpoints.
 - **Audit Logging**: Automatically logs actions via `audit_log.middleware.AuditLogMiddleware`.
 
 ## Testing

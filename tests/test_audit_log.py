@@ -75,7 +75,7 @@ class TestAuditLog:
             priority=AuditLog.Priority.LOW,
         )
         api_client.force_authenticate(user=superuser)
-        response = api_client.get("/audit/api/logs/")
+        response = api_client.get("/audit/logs/")
         assert response.status_code == 200
         assert len(response.data["results"]) == 1
         assert response.data["results"][0]["priority"] == "LOW"
@@ -87,7 +87,7 @@ class TestAuditLog:
             priority=AuditLog.Priority.HIGH,
         )
         api_client.force_authenticate(user=superuser)
-        response = api_client.get("/audit/api/logs/?priority=HIGH")
+        response = api_client.get("/audit/logs/?priority=HIGH")
         assert response.status_code == 200
         assert len(response.data["results"]) == 1
         assert response.data["results"][0]["priority"] == "HIGH"

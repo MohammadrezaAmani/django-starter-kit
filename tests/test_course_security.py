@@ -35,7 +35,7 @@ class AuthenticationSecurityTestCase(APITestCase):
 
         for weak_password in weak_passwords:
             response = self.client.post(
-                "/api/auth/register/",
+                "/auth/register/",
                 {
                     "username": f"test_{weak_password}",
                     "email": f"test_{weak_password}@test.com",
@@ -50,13 +50,13 @@ class AuthenticationSecurityTestCase(APITestCase):
         # Attempt multiple failed logins
         for attempt in range(10):
             response = self.client.post(
-                "/api/auth/login/",
+                "/auth/login/",
                 {"username": "testuser", "password": "wrongpassword"},
             )
 
         # Should be rate limited after multiple attempts
         final_response = self.client.post(
-            "/api/auth/login/", {"username": "testuser", "password": "wrongpassword"}
+            "/auth/login/", {"username": "testuser", "password": "wrongpassword"}
         )
 
         # Should be blocked or rate limited
@@ -67,7 +67,7 @@ class AuthenticationSecurityTestCase(APITestCase):
         self.client.force_authenticate(user=self.user)
 
         # Make authenticated request
-        response = self.client.get("/api/courses/")
+        response = self.client.get("/courses/")
         initial_status = response.status_code
 
         # Simulate time passing (in real implementation, this would be handled by middleware)
@@ -77,7 +77,7 @@ class AuthenticationSecurityTestCase(APITestCase):
             )  # 25 hours later
 
             # Session should have expired
-            response = self.client.get("/api/courses/")
+            response = self.client.get("/courses/")
             # In a real implementation, this should require re-authentication
             self.assertIn(response.status_code, [200, 401, 403])
 
@@ -85,14 +85,14 @@ class AuthenticationSecurityTestCase(APITestCase):
         """Test JWT token validation and security"""
         # Test with malformed token
         self.client.credentials(HTTP_AUTHORIZATION="Bearer invalid.token.here")
-        response = self.client.get("/api/courses/")
+        response = self.client.get("/courses/")
         self.assertIn(response.status_code, [401, 403])
 
         # Test with expired token (simulation)
         self.client.credentials(
             HTTP_AUTHORIZATION="Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.expired.token"
         )
-        response = self.client.get("/api/courses/")
+        response = self.client.get("/courses/")
         self.assertIn(response.status_code, [401, 403])
 
     def test_privilege_escalation_prevention(self):
@@ -101,9 +101,9 @@ class AuthenticationSecurityTestCase(APITestCase):
         self.client.force_authenticate(user=self.user)
 
         admin_endpoints = [
-            "/api/admin/users/",
-            "/api/admin/courses/",
-            "/api/admin/analytics/",
+            "/admin/users/",
+            "/admin/courses/",
+            "/admin/analytics/",
         ]
 
         for endpoint in admin_endpoints:
@@ -116,13 +116,13 @@ class AuthenticationSecurityTestCase(APITestCase):
         # Multiple failed login attempts
         for i in range(5):
             self.client.post(
-                "/api/auth/login/",
+                "/auth/login/",
                 {"username": "testuser", "password": "wrongpassword"},
             )
 
         # Even with correct password, account should be locked
         response = self.client.post(
-            "/api/auth/login/", {"username": "testuser", "password": "SecurePass123!"}
+            "/auth/login/", {"username": "testuser", "password": "SecurePass123!"}
         )
 
         # Should be locked or show security message
@@ -155,7 +155,7 @@ class InputValidationSecurityTestCase(APITestCase):
 
         for payload in sql_payloads:
             # Test in search parameters
-            response = self.client.get("/api/courses/", {"search": payload})
+            response = self.client.get("/courses/", {"search": payload})
             self.assertNotEqual(response.status_code, 500)
 
             # Test in course creation
@@ -164,7 +164,7 @@ class InputValidationSecurityTestCase(APITestCase):
                 "description": "Test description",
                 "level": "beginner",
             }
-            response = self.client.post("/api/courses/", course_data)
+            response = self.client.post("/courses/", course_data)
             self.assertNotEqual(response.status_code, 500)
 
     def test_xss_prevention(self):
@@ -189,7 +189,7 @@ class InputValidationSecurityTestCase(APITestCase):
                 "level": "beginner",
             }
 
-            response = self.client.post("/api/courses/", course_data)
+            response = self.client.post("/courses/", course_data)
 
             if response.status_code == 201:
                 # Check that XSS payload is properly escaped/sanitized
@@ -217,7 +217,7 @@ class InputValidationSecurityTestCase(APITestCase):
         ]
 
         for payload in nosql_payloads:
-            response = self.client.get("/api/courses/", {"filter": payload})
+            response = self.client.get("/courses/", {"filter": payload})
             self.assertNotEqual(response.status_code, 500)
 
     def test_ldap_injection_prevention(self):
@@ -232,7 +232,7 @@ class InputValidationSecurityTestCase(APITestCase):
         ]
 
         for payload in ldap_payloads:
-            response = self.client.get("/api/users/", {"username": payload})
+            response = self.client.get("/users/", {"username": payload})
             self.assertIn(response.status_code, [200, 400, 403, 404])
 
     def test_command_injection_prevention(self):
@@ -255,7 +255,7 @@ class InputValidationSecurityTestCase(APITestCase):
                 "level": "beginner",
             }
 
-            response = self.client.post("/api/courses/", course_data)
+            response = self.client.post("/courses/", course_data)
             self.assertNotEqual(response.status_code, 500)
 
     def test_path_traversal_prevention(self):
@@ -272,7 +272,7 @@ class InputValidationSecurityTestCase(APITestCase):
         for payload in traversal_payloads:
             # Test in file upload scenarios
             response = self.client.post(
-                "/api/courses/",
+                "/courses/",
                 {"title": "Test Course", "thumbnail": payload, "level": "beginner"},
             )
             self.assertIn(response.status_code, [200, 400, 403])
@@ -289,7 +289,7 @@ class InputValidationSecurityTestCase(APITestCase):
 
         # Test XML in content fields
         response = self.client.post(
-            "/api/courses/",
+            "/courses/",
             {"title": "Test Course", "description": xxe_payload, "level": "beginner"},
             content_type="application/xml",
         )
@@ -311,7 +311,7 @@ class DataProtectionSecurityTestCase(APITestCase):
         self.client.force_authenticate(user=self.user)
 
         # Test user endpoint
-        response = self.client.get("/api/users/me/")
+        response = self.client.get("/users/me/")
         if response.status_code == 200:
             response_text = json.dumps(response.data).lower()
 
@@ -338,7 +338,7 @@ class DataProtectionSecurityTestCase(APITestCase):
         self.client.force_authenticate(user=self.user)
 
         # User should not see other users' PII
-        response = self.client.get(f"/api/users/{other_user.id}/")
+        response = self.client.get(f"/users/{other_user.id}/")
 
         if response.status_code == 200:
             # Should not expose sensitive PII
@@ -352,7 +352,7 @@ class DataProtectionSecurityTestCase(APITestCase):
         # Here we test that security headers are present
 
         self.client.force_authenticate(user=self.user)
-        response = self.client.get("/api/courses/")
+        response = self.client.get("/courses/")
 
         if response.status_code == 200:
             # Check for security headers
@@ -374,11 +374,11 @@ class DataProtectionSecurityTestCase(APITestCase):
         self.client.force_authenticate(user=user1)
 
         # Test progress data isolation
-        response = self.client.get(f"/api/users/{user2.id}/progress/")
+        response = self.client.get(f"/users/{user2.id}/progress/")
         self.assertIn(response.status_code, [403, 404])
 
         # Test settings data isolation
-        response = self.client.get(f"/api/users/{user2.id}/settings/")
+        response = self.client.get(f"/users/{user2.id}/settings/")
         self.assertIn(response.status_code, [403, 404])
 
 
@@ -399,7 +399,7 @@ class FileUploadSecurityTestCase(APITestCase):
         malicious_content = b"#!/bin/bash\necho 'malicious script'"
 
         response = self.client.post(
-            "/api/courses/",
+            "/courses/",
             {
                 "title": "Test Course",
                 "level": "beginner",
@@ -418,7 +418,7 @@ class FileUploadSecurityTestCase(APITestCase):
         large_content = b"A" * (10 * 1024 * 1024)  # 10MB
 
         response = self.client.post(
-            "/api/courses/",
+            "/courses/",
             {
                 "title": "Test Course",
                 "level": "beginner",
@@ -442,7 +442,7 @@ class FileUploadSecurityTestCase(APITestCase):
 
         for content, filename in dangerous_files:
             response = self.client.post(
-                "/api/courses/",
+                "/courses/",
                 {
                     "title": "Test Course",
                     "level": "beginner",
@@ -467,7 +467,7 @@ class RateLimitingSecurityTestCase(APITestCase):
         """Test API rate limiting"""
         self.client.force_authenticate(user=self.user)
 
-        url = "/api/courses/"
+        url = "/courses/"
 
         # Make many requests quickly
         responses = []
@@ -492,7 +492,7 @@ class RateLimitingSecurityTestCase(APITestCase):
         responses = []
         for i in range(20):
             response = self.client.post(
-                "/api/auth/login/",
+                "/auth/login/",
                 {"username": "testuser", "password": "wrongpassword"},
             )
             responses.append(response.status_code)
@@ -511,7 +511,7 @@ class RateLimitingSecurityTestCase(APITestCase):
         # Test bulk operations or complex queries
         responses = []
         for i in range(10):
-            response = self.client.get("/api/analytics/", {"detailed": "true"})
+            response = self.client.get("/analytics/", {"detailed": "true"})
             responses.append(response.status_code)
 
             if response.status_code == 429:
@@ -533,7 +533,7 @@ class HeaderSecurityTestCase(APITestCase):
     def test_security_headers_present(self):
         """Test that security headers are present"""
         self.client.force_authenticate(user=self.user)
-        response = self.client.get("/api/courses/")
+        response = self.client.get("/courses/")
 
         # Check for important security headers
         expected_headers = [
@@ -549,7 +549,7 @@ class HeaderSecurityTestCase(APITestCase):
         """Test CORS configuration"""
         # Test preflight request
         response = self.client.options(
-            "/api/courses/", HTTP_ORIGIN="http://malicious-site.com"
+            "/courses/", HTTP_ORIGIN="http://malicious-site.com"
         )
 
         # Should either reject or have proper CORS headers
@@ -561,7 +561,7 @@ class HeaderSecurityTestCase(APITestCase):
 
         # Send request with wrong content type
         response = self.client.post(
-            "/api/courses/", data='{"title": "test"}', content_type="text/plain"
+            "/courses/", data='{"title": "test"}', content_type="text/plain"
         )
 
         # Should reject invalid content types
@@ -587,7 +587,7 @@ class CourseSecurityIntegrationTestCase(APITestCase):
 
         # Try to change victim's password
         response = self.client.post(
-            f"/api/users/{self.victim.id}/change-password/",
+            f"/users/{self.victim.id}/change-password/",
             {"new_password": "NewPassword123!"},
         )
 
@@ -607,7 +607,7 @@ class CourseSecurityIntegrationTestCase(APITestCase):
 
         # Try to perform state-changing operations
         response = self.client.post(
-            "/api/courses/", {"title": "Attacker Course", "level": "beginner"}
+            "/courses/", {"title": "Attacker Course", "level": "beginner"}
         )
 
         # Should be properly authenticated and authorized
@@ -627,7 +627,7 @@ class CourseSecurityIntegrationTestCase(APITestCase):
 
         # Create course as admin first (if possible)
         # Then try to bypass enrollment logic
-        response = self.client.post("/api/courses/1/enroll/", {"bypass_payment": True})
+        response = self.client.post("/courses/1/enroll/", {"bypass_payment": True})
 
         # Should enforce business rules
         self.assertIn(response.status_code, [400, 402, 403, 404])

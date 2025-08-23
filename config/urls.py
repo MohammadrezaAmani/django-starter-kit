@@ -28,7 +28,7 @@ urlpatterns = (
         path("feedback/", include("apps.feedback.urls")),
         path("silk/", include("silk.urls", namespace="silk")),
         path("events/", include("apps.events.urls", namespace="events")),
-        path("core/", include("apps.course.urls", namespace="course")),
+        path("", include("apps.course.urls", namespace="course")),
     ]
     + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
     + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

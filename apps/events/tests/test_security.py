@@ -35,7 +35,7 @@ class AuthenticationSecurityTestCase(APITestCase):
 
     def test_unauthenticated_event_creation(self):
         """Test that unauthenticated users cannot create events."""
-        url = "/api/v1/events/"
+        url = "/v1/events/"
         data = {
             "title": "Unauthorized Event",
             "description": "Should not be created",
@@ -48,14 +48,14 @@ class AuthenticationSecurityTestCase(APITestCase):
 
     def test_unauthenticated_event_registration(self):
         """Test that unauthenticated users cannot register for events."""
-        url = f"/api/v1/events/{self.event.id}/register/"
+        url = f"/v1/events/{self.event.id}/register/"
 
         response = self.client.post(url)
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_session_manipulation_without_auth(self):
         """Test that sessions cannot be manipulated without authentication."""
-        url = "/api/v1/sessions/"
+        url = "/v1/sessions/"
         data = {
             "event": self.event.id,
             "title": "Unauthorized Session",
@@ -69,7 +69,7 @@ class AuthenticationSecurityTestCase(APITestCase):
 
     def test_analytics_access_without_auth(self):
         """Test that analytics cannot be accessed without authentication."""
-        url = f"/api/v1/events/{self.event.id}/analytics/"
+        url = f"/v1/events/{self.event.id}/analytics/"
 
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
@@ -127,7 +127,7 @@ class AuthorizationSecurityTestCase(APITestCase):
         """Test that private events are not accessible to unauthorized users."""
         self.client.force_authenticate(user=self.malicious_user)
 
-        url = f"/api/v1/events/{self.private_event.id}/"
+        url = f"/v1/events/{self.private_event.id}/"
         response = self.client.get(url)
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
@@ -136,7 +136,7 @@ class AuthorizationSecurityTestCase(APITestCase):
         """Test that non-owners cannot modify events."""
         self.client.force_authenticate(user=self.malicious_user)
 
-        url = f"/api/v1/events/{self.public_event.id}/"
+        url = f"/v1/events/{self.public_event.id}/"
         data = {"title": "Hacked Event"}
 
         response = self.client.patch(url, data, format="json")
@@ -146,7 +146,7 @@ class AuthorizationSecurityTestCase(APITestCase):
         """Test that participant data is protected from unauthorized access."""
         self.client.force_authenticate(user=self.malicious_user)
 
-        url = f"/api/v1/events/{self.public_event.id}/participants/"
+        url = f"/v1/events/{self.public_event.id}/participants/"
         response = self.client.get(url)
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
@@ -155,7 +155,7 @@ class AuthorizationSecurityTestCase(APITestCase):
         """Test that analytics access is denied to non-organizers."""
         self.client.force_authenticate(user=self.participant_user)
 
-        url = f"/api/v1/events/{self.public_event.id}/analytics/"
+        url = f"/v1/events/{self.public_event.id}/analytics/"
         response = self.client.get(url)
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
@@ -174,7 +174,7 @@ class AuthorizationSecurityTestCase(APITestCase):
         self.client.force_authenticate(user=self.malicious_user)
 
         # Try to access participant from different event
-        url = f"/api/v1/participants/{self.participant.id}/"
+        url = f"/v1/participants/{self.participant.id}/"
         response = self.client.get(url)
 
         # Should be forbidden since participant belongs to different event
@@ -195,7 +195,7 @@ class InputValidationSecurityTestCase(APITestCase):
         """Test that SQL injection attempts are prevented in search."""
         malicious_query = "'; DROP TABLE events_event; --"
 
-        url = f"/api/v1/events/?search={malicious_query}"
+        url = f"/v1/events/?search={malicious_query}"
         response = self.client.get(url)
 
         # Should return safely without executing malicious SQL
@@ -205,7 +205,7 @@ class InputValidationSecurityTestCase(APITestCase):
         """Test that XSS attempts are prevented in event data."""
         xss_payload = "<script>alert('XSS')</script>"
 
-        url = "/api/v1/events/"
+        url = "/v1/events/"
         data = {
             "title": xss_payload,
             "description": f"Event with {xss_payload}",
@@ -239,7 +239,7 @@ class InputValidationSecurityTestCase(APITestCase):
         )
 
         # Try to upload malicious file as attachment
-        url = "/api/v1/event-attachments/"
+        url = "/v1/event-attachments/"
         data = {
             "event": event.id,
             "title": "Malicious File",
@@ -273,7 +273,7 @@ class InputValidationSecurityTestCase(APITestCase):
             end_date=timezone.now() + timedelta(days=2),
         )
 
-        url = "/api/v1/event-attachments/"
+        url = "/v1/event-attachments/"
         data = {
             "event": event.id,
             "title": "Large File",
@@ -304,7 +304,7 @@ class InputValidationSecurityTestCase(APITestCase):
             end_date=timezone.now() + timedelta(days=2),
         )
 
-        url = "/api/v1/event-attachments/"
+        url = "/v1/event-attachments/"
         data = {
             "event": event.id,
             "title": "Test File",
@@ -324,7 +324,7 @@ class InputValidationSecurityTestCase(APITestCase):
         # Create large JSON payload
         large_description = "x" * (1024 * 1024)  # 1MB description
 
-        url = "/api/v1/events/"
+        url = "/v1/events/"
         data = {
             "title": "Test Event",
             "description": large_description,
@@ -374,7 +374,7 @@ class DataLeakageSecurityTestCase(APITestCase):
         """Test that sensitive user data is not exposed in API responses."""
         self.client.force_authenticate(user=self.user1)
 
-        url = f"/api/v1/events/{self.event.id}/"
+        url = f"/v1/events/{self.event.id}/"
         response = self.client.get(url)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -400,7 +400,7 @@ class DataLeakageSecurityTestCase(APITestCase):
 
         # User1 tries to access participant list
         self.client.force_authenticate(user=self.user1)
-        url = f"/api/v1/events/{self.event.id}/participants/"
+        url = f"/v1/events/{self.event.id}/participants/"
         response = self.client.get(url)
 
         # Should not have access to participant list as non-organizer
@@ -410,7 +410,7 @@ class DataLeakageSecurityTestCase(APITestCase):
         """Test that error messages don't disclose sensitive information."""
         # Try to access non-existent event
         self.client.force_authenticate(user=self.user1)
-        url = "/api/v1/events/99999/"
+        url = "/v1/events/99999/"
         response = self.client.get(url)
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
@@ -437,7 +437,7 @@ class DataLeakageSecurityTestCase(APITestCase):
         self.client.force_authenticate(user=self.user1)
 
         # Try to access private event
-        url = f"/api/v1/events/{private_event.id}/"
+        url = f"/v1/events/{private_event.id}/"
         response = self.client.get(url)
 
         # Should return 404 instead of 403 to prevent ID enumeration
@@ -466,7 +466,7 @@ class RateLimitingSecurityTestCase(APITestCase):
         """Test that registration attempts are rate limited."""
         self.client.force_authenticate(user=self.user)
 
-        url = f"/api/v1/events/{self.event.id}/register/"
+        url = f"/v1/events/{self.event.id}/register/"
 
         # Make multiple rapid registration attempts
         responses = []
@@ -487,7 +487,7 @@ class RateLimitingSecurityTestCase(APITestCase):
     def test_api_endpoint_rate_limiting(self):
         """Test that API endpoints are properly rate limited."""
         # Test event listing rate limit
-        url = "/api/v1/events/"
+        url = "/v1/events/"
 
         responses = []
         for i in range(50):  # Make many requests
@@ -515,14 +515,14 @@ class SessionSecurityTestCase(APITestCase):
         self.client.force_authenticate(user=self.user)
 
         # Make request to get session info
-        response = self.client.get("/api/v1/events/")
+        response = self.client.get("/v1/events/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         # Simulate session hijacking attempt by changing user agent
         self.client.defaults["HTTP_USER_AGENT"] = "DifferentBrowser/1.0"
 
         # Request should still work with proper JWT token
-        response = self.client.get("/api/v1/events/")
+        response = self.client.get("/v1/events/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_concurrent_session_handling(self):
@@ -535,8 +535,8 @@ class SessionSecurityTestCase(APITestCase):
         client2.force_authenticate(user=self.user)
 
         # Both clients should work independently
-        response1 = client1.get("/api/v1/events/")
-        response2 = client2.get("/api/v1/events/")
+        response1 = client1.get("/v1/events/")
+        response2 = client2.get("/v1/events/")
 
         self.assertEqual(response1.status_code, status.HTTP_200_OK)
         self.assertEqual(response2.status_code, status.HTTP_200_OK)
@@ -565,7 +565,7 @@ class CSRFSecurityTestCase(TestCase):
         client = Client()
 
         # API endpoints should work without CSRF token when using proper authentication
-        response = client.get("/api/v1/events/")
+        response = client.get("/v1/events/")
 
         # Should not fail due to CSRF (might fail due to other reasons like auth)
         self.assertNotEqual(response.status_code, status.HTTP_403_FORBIDDEN)
@@ -591,7 +591,7 @@ class ContentSecurityTestCase(APITestCase):
         ]
 
         for malicious_content in malicious_contents:
-            url = "/api/v1/events/"
+            url = "/v1/events/"
             data = {
                 "title": f"Event with {malicious_content}",
                 "description": malicious_content,
@@ -618,7 +618,7 @@ class ContentSecurityTestCase(APITestCase):
             website_url="https://evil.com",  # Potentially malicious URL
         )
 
-        url = f"/api/v1/events/{event.id}/"
+        url = f"/v1/events/{event.id}/"
         response = self.client.get(url)
 
         # Verify that malicious URLs are handled safely

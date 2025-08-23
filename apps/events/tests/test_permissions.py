@@ -577,7 +577,7 @@ class PermissionIntegrationTest(APITestCase):
         """Test that non-organizer cannot update event."""
         self.client.force_authenticate(user=self.random_user)
 
-        url = f"/api/v1/events/{self.event.id}/"
+        url = f"/v1/events/{self.event.id}/"
         data = {"title": "Updated Title"}
 
         response = self.client.patch(url, data, format="json")
@@ -588,7 +588,7 @@ class PermissionIntegrationTest(APITestCase):
         """Test that organizer can update event."""
         self.client.force_authenticate(user=self.organizer)
 
-        url = f"/api/v1/events/{self.event.id}/"
+        url = f"/v1/events/{self.event.id}/"
         data = {"title": "Updated Title"}
 
         response = self.client.patch(url, data, format="json")
@@ -602,7 +602,7 @@ class PermissionIntegrationTest(APITestCase):
 
         self.client.force_authenticate(user=self.random_user)
 
-        url = f"/api/v1/events/{self.event.id}/"
+        url = f"/v1/events/{self.event.id}/"
         response = self.client.get(url)
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
@@ -614,7 +614,7 @@ class PermissionIntegrationTest(APITestCase):
 
         self.client.force_authenticate(user=self.organizer)
 
-        url = f"/api/v1/events/{self.event.id}/"
+        url = f"/v1/events/{self.event.id}/"
         response = self.client.get(url)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -623,7 +623,7 @@ class PermissionIntegrationTest(APITestCase):
         """Test that analytics access is denied to non-organizers."""
         self.client.force_authenticate(user=self.random_user)
 
-        url = f"/api/v1/events/{self.event.id}/analytics/"
+        url = f"/v1/events/{self.event.id}/analytics/"
         response = self.client.get(url)
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
@@ -632,7 +632,7 @@ class PermissionIntegrationTest(APITestCase):
         """Test that analytics access is granted to organizer."""
         self.client.force_authenticate(user=self.organizer)
 
-        url = f"/api/v1/events/{self.event.id}/analytics/"
+        url = f"/v1/events/{self.event.id}/analytics/"
         response = self.client.get(url)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)

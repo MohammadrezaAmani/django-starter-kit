@@ -277,7 +277,7 @@ class CourseAdmin(admin.ModelAdmin):
         if obj.instructor:
             return format_html(
                 '<a href="{}">{}</a>',
-                reverse("admin:auth_user_change", args=[obj.instructor.pk]),
+                reverse("admin:accounts_user_change", args=[obj.instructor.pk]),
                 obj.instructor.get_full_name() or obj.instructor.username,
             )
         return "-"

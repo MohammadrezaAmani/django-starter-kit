@@ -417,7 +417,7 @@ class APIPerformanceTestCase(APITestCase):
         """Test chat list API performance."""
         start_time = time.time()
 
-        response = self.client.get("/api/chats/")
+        response = self.client.get("/chats/")
 
         end_time = time.time()
         response_time = end_time - start_time
@@ -437,7 +437,7 @@ class APIPerformanceTestCase(APITestCase):
 
         start_time = time.time()
 
-        response = self.client.get(f"/api/chats/{chat.id}/messages/")
+        response = self.client.get(f"/chats/{chat.id}/messages/")
 
         end_time = time.time()
         response_time = end_time - start_time
@@ -453,7 +453,7 @@ class APIPerformanceTestCase(APITestCase):
 
         start_time = time.time()
 
-        response = self.client.post(f"/api/chats/{chat.id}/messages/", data)
+        response = self.client.post(f"/chats/{chat.id}/messages/", data)
 
         end_time = time.time()
         response_time = end_time - start_time
@@ -496,7 +496,7 @@ class FileUploadPerformanceTestCase(APITestCase):
         start_time = time.time()
 
         response = self.client.post(
-            f"/api/chats/{self.chat.id}/messages/", data, format="multipart"
+            f"/chats/{self.chat.id}/messages/", data, format="multipart"
         )
 
         end_time = time.time()
@@ -524,7 +524,7 @@ class FileUploadPerformanceTestCase(APITestCase):
         start_time = time.time()
 
         response = self.client.post(
-            f"/api/chats/{self.chat.id}/messages/", data, format="multipart"
+            f"/chats/{self.chat.id}/messages/", data, format="multipart"
         )
 
         end_time = time.time()

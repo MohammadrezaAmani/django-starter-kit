@@ -49,7 +49,7 @@ class TestCommonCRUD:
     def test_create_tag(self, api_client, user):
         api_client.force_authenticate(user=user)
         data = {"name": "Test Tag"}
-        response = api_client.post("/common/api/tags/", data)
+        response = api_client.post("/common/tags/", data)
         assert response.status_code == status.HTTP_201_CREATED
         tag = Tag.objects.get(name="Test Tag")
         assert tag.created_by == user
@@ -58,7 +58,7 @@ class TestCommonCRUD:
     def test_bulk_create_tags(self, api_client, user):
         api_client.force_authenticate(user=user)
         data = {"names": ["Tag1", "Tag2", "Tag1"]}
-        response = api_client.post("/common/api/tags/bulk_create/", data)
+        response = api_client.post("/common/tags/bulk_create/", data)
         assert response.status_code == status.HTTP_201_CREATED
         assert Tag.objects.count() == 2
         assert Tag.objects.filter(name="Tag1").exists()
@@ -67,7 +67,7 @@ class TestCommonCRUD:
     def test_read_tag(self, api_client, user):
         Tag.objects.create(name="Test Tag", created_by=user, slug="test-tag")
         api_client.force_authenticate(user=user)
-        response = api_client.get("/common/api/tags/")
+        response = api_client.get("/common/tags/")
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data) == 1
         assert response.data[0]["name"] == "Test Tag"
@@ -76,7 +76,7 @@ class TestCommonCRUD:
         tag = Tag.objects.create(name="Old Tag", created_by=user, slug="old-tag")
         api_client.force_authenticate(user=user)
         data = {"name": "New Tag"}
-        response = api_client.put(f"/common/api/tags/{tag.id}/", data)
+        response = api_client.put(f"/common/tags/{tag.id}/", data)
         assert response.status_code == status.HTTP_200_OK
         tag.refresh_from_db()
         assert tag.name == "New Tag"
@@ -85,14 +85,14 @@ class TestCommonCRUD:
     def test_delete_tag(self, api_client, user):
         tag = Tag.objects.create(name="Test Tag", created_by=user, slug="test-tag")
         api_client.force_authenticate(user=user)
-        response = api_client.delete(f"/common/api/tags/{tag.id}/")
+        response = api_client.delete(f"/common/tags/{tag.id}/")
         assert response.status_code == status.HTTP_204_NO_CONTENT
         assert not Tag.objects.filter(id=tag.id).exists()
 
     def test_create_action(self, api_client, user):
         api_client.force_authenticate(user=user)
         data = {"action_type": "CLICK", "metadata": {"button": "submit"}}
-        response = api_client.post("/common/api/actions/", data)
+        response = api_client.post("/common/actions/", data)
         assert response.status_code == status.HTTP_201_CREATED
         action = Action.objects.get()  # type: ignore
         assert action.user == user
@@ -105,7 +105,7 @@ class TestCommonCRUD:
             "content_type": ContentType.objects.get_for_model(Notification).id,
             "object_id": notification.id,
         }
-        response = api_client.post("/common/api/reacts/", data)
+        response = api_client.post("/common/reacts/", data)
         assert response.status_code == status.HTTP_201_CREATED
         react = React.objects.get()  # type: ignore
         assert react.user == user
@@ -117,7 +117,7 @@ class TestCommonCRUD:
             "content_type": ContentType.objects.get_for_model(Notification).id,
             "object_id": notification.id,
         }
-        response = api_client.post("/common/api/views/", data)
+        response = api_client.post("/common/views/", data)
         assert response.status_code == status.HTTP_201_CREATED
         view = View.objects.get()  # type: ignore
         assert view.user == user
@@ -130,7 +130,7 @@ class TestCommonCRUD:
             "object_id": notification.id,
             "text": "Great post!",
         }
-        response = api_client.post("/common/api/comments/", data)
+        response = api_client.post("/common/comments/", data)
         assert response.status_code == status.HTTP_201_CREATED
         comment = Comment.objects.get()
         assert comment.user == user
@@ -151,7 +151,7 @@ class TestCommonCRUD:
             "parent": parent.id,
             "text": "Reply comment",
         }
-        response = api_client.post("/common/api/comments/", data)
+        response = api_client.post("/common/comments/", data)
         assert response.status_code == status.HTTP_201_CREATED
         reply = Comment.objects.get(text="Reply comment")
         assert reply.parent == parent
@@ -166,7 +166,7 @@ class TestCommonCRUD:
             "address": "Main St, Tehran",
             "postal_code": "12345",
         }
-        response = api_client.post("/common/api/locations/", data)
+        response = api_client.post("/common/locations/", data)
         assert response.status_code == status.HTTP_201_CREATED
         location = Location.objects.get()  # type: ignore
         assert location.name == "Tehran"
@@ -182,7 +182,7 @@ class TestCommonCRUD:
             coordinates=Point(51.3890, 35.6892),
         )
         api_client.force_authenticate(user=user)
-        response = api_client.get("/common/api/locations/?location_type=CITY")
+        response = api_client.get("/common/locations/?location_type=CITY")
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data) == 1
         assert response.data[0]["name"] == "Tehran"

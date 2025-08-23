@@ -125,7 +125,7 @@ class TestAuthURLs(TestCase):
         ]
         for name in url_names:
             url = reverse(name)
-            self.assertTrue(url.startswith("/api/auth/"))
+            self.assertTrue(url.startswith("/auth/"))
             response = self.client.get(url, follow=True)
             self.assertIn(response.status_code, [200, 401, 403, 405])  # type: ignore
 

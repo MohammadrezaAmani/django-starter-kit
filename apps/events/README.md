@@ -81,77 +81,77 @@ Sponsor and exhibitor management:
 
 ### Events
 ```
-GET    /api/v1/events/                 # List events
-POST   /api/v1/events/                 # Create event
-GET    /api/v1/events/{id}/            # Get event details
-PUT    /api/v1/events/{id}/            # Update event
-DELETE /api/v1/events/{id}/            # Delete event
+GET    /v1/events/                 # List events
+POST   /v1/events/                 # Create event
+GET    /v1/events/{id}/            # Get event details
+PUT    /v1/events/{id}/            # Update event
+DELETE /v1/events/{id}/            # Delete event
 
 # Event Actions
-POST   /api/v1/events/{id}/register/   # Register for event
-POST   /api/v1/events/{id}/unregister/ # Unregister from event
-GET    /api/v1/events/{id}/sessions/   # Get event sessions
-GET    /api/v1/events/{id}/participants/ # Get participants
-POST   /api/v1/events/{id}/favorite/   # Favorite/unfavorite event
-GET    /api/v1/events/featured/        # Get featured events
-GET    /api/v1/events/trending/        # Get trending events
-GET    /api/v1/events/my_events/       # Get user's events
-GET    /api/v1/events/{id}/analytics/  # Get event analytics
+POST   /v1/events/{id}/register/   # Register for event
+POST   /v1/events/{id}/unregister/ # Unregister from event
+GET    /v1/events/{id}/sessions/   # Get event sessions
+GET    /v1/events/{id}/participants/ # Get participants
+POST   /v1/events/{id}/favorite/   # Favorite/unfavorite event
+GET    /v1/events/featured/        # Get featured events
+GET    /v1/events/trending/        # Get trending events
+GET    /v1/events/my_events/       # Get user's events
+GET    /v1/events/{id}/analytics/  # Get event analytics
 ```
 
 ### Categories
 ```
-GET    /api/v1/categories/             # List categories
-GET    /api/v1/categories/{id}/        # Get category details
-GET    /api/v1/categories/{id}/events/ # Get category events
+GET    /v1/categories/             # List categories
+GET    /v1/categories/{id}/        # Get category details
+GET    /v1/categories/{id}/events/ # Get category events
 ```
 
 ### Tags
 ```
-GET    /api/v1/tags/                   # List tags
-GET    /api/v1/tags/{id}/              # Get tag details
-GET    /api/v1/tags/trending/          # Get trending tags
-GET    /api/v1/tags/{id}/stats/        # Get tag statistics
+GET    /v1/tags/                   # List tags
+GET    /v1/tags/{id}/              # Get tag details
+GET    /v1/tags/trending/          # Get trending tags
+GET    /v1/tags/{id}/stats/        # Get tag statistics
 ```
 
 ### Sessions
 ```
-GET    /api/v1/sessions/               # List sessions
-POST   /api/v1/sessions/               # Create session
-GET    /api/v1/sessions/{id}/          # Get session details
-PUT    /api/v1/sessions/{id}/          # Update session
-DELETE /api/v1/sessions/{id}/          # Delete session
-POST   /api/v1/sessions/{id}/rate/     # Rate session
+GET    /v1/sessions/               # List sessions
+POST   /v1/sessions/               # Create session
+GET    /v1/sessions/{id}/          # Get session details
+PUT    /v1/sessions/{id}/          # Update session
+DELETE /v1/sessions/{id}/          # Delete session
+POST   /v1/sessions/{id}/rate/     # Rate session
 ```
 
 ### Participants
 ```
-GET    /api/v1/participants/           # List participants
-POST   /api/v1/participants/           # Register participant
-GET    /api/v1/participants/{id}/      # Get participant details
-PUT    /api/v1/participants/{id}/      # Update participant
-DELETE /api/v1/participants/{id}/      # Remove participant
-POST   /api/v1/participants/{id}/check_in/ # Check in participant
-GET    /api/v1/participants/{id}/badges/   # Get participant badges
+GET    /v1/participants/           # List participants
+POST   /v1/participants/           # Register participant
+GET    /v1/participants/{id}/      # Get participant details
+PUT    /v1/participants/{id}/      # Update participant
+DELETE /v1/participants/{id}/      # Remove participant
+POST   /v1/participants/{id}/check_in/ # Check in participant
+GET    /v1/participants/{id}/badges/   # Get participant badges
 ```
 
 ### Exhibitors
 ```
-GET    /api/v1/exhibitors/             # List exhibitors
-POST   /api/v1/exhibitors/             # Create exhibitor
-GET    /api/v1/exhibitors/{id}/        # Get exhibitor details
-PUT    /api/v1/exhibitors/{id}/        # Update exhibitor
-DELETE /api/v1/exhibitors/{id}/        # Delete exhibitor
-GET    /api/v1/exhibitors/{id}/products/ # Get exhibitor products
+GET    /v1/exhibitors/             # List exhibitors
+POST   /v1/exhibitors/             # Create exhibitor
+GET    /v1/exhibitors/{id}/        # Get exhibitor details
+PUT    /v1/exhibitors/{id}/        # Update exhibitor
+DELETE /v1/exhibitors/{id}/        # Delete exhibitor
+GET    /v1/exhibitors/{id}/products/ # Get exhibitor products
 ```
 
 ### Products
 ```
-GET    /api/v1/products/               # List products
-POST   /api/v1/products/               # Create product
-GET    /api/v1/products/{id}/          # Get product details
-PUT    /api/v1/products/{id}/          # Update product
-DELETE /api/v1/products/{id}/          # Delete product
+GET    /v1/products/               # List products
+POST   /v1/products/               # Create product
+GET    /v1/products/{id}/          # Get product details
+PUT    /v1/products/{id}/          # Update product
+DELETE /v1/products/{id}/          # Delete product
 ```
 
 ## Filtering & Search
@@ -159,40 +159,40 @@ DELETE /api/v1/products/{id}/          # Delete product
 ### Event Filtering
 ```python
 # Filter by categories
-GET /api/v1/events/?categories=1,2,3
+GET /v1/events/?categories=1,2,3
 
 # Filter by tags
-GET /api/v1/events/?tags=python,django
+GET /v1/events/?tags=python,django
 
 # Filter by date range
-GET /api/v1/events/?start_date_after=2024-01-01&start_date_before=2024-12-31
+GET /v1/events/?start_date_after=2024-01-01&start_date_before=2024-12-31
 
 # Filter by price
-GET /api/v1/events/?is_free=true
-GET /api/v1/events/?min_price=0&max_price=100
+GET /v1/events/?is_free=true
+GET /v1/events/?min_price=0&max_price=100
 
 # Filter by location
-GET /api/v1/events/?location=San Francisco
+GET /v1/events/?location=San Francisco
 
 # Filter by status
-GET /api/v1/events/?status=published,live
+GET /v1/events/?status=published,live
 
 # Filter by registration status
-GET /api/v1/events/?registration_open=true
-GET /api/v1/events/?has_capacity=true
+GET /v1/events/?registration_open=true
+GET /v1/events/?has_capacity=true
 
 # Search
-GET /api/v1/events/?search=python conference
+GET /v1/events/?search=python conference
 ```
 
 ### Advanced Filtering
 ```python
 # Multiple filters combined
-GET /api/v1/events/?categories=1&tags=python&is_free=true&registration_open=true
+GET /v1/events/?categories=1&tags=python&is_free=true&registration_open=true
 
 # Ordering
-GET /api/v1/events/?ordering=start_date
-GET /api/v1/events/?ordering=-created_at
+GET /v1/events/?ordering=start_date
+GET /v1/events/?ordering=-created_at
 ```
 
 ## Permissions

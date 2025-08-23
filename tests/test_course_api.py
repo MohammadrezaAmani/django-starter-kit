@@ -27,7 +27,7 @@ class CourseAPITestCase(APITestCase):
 
     def test_course_list_unauthenticated(self):
         """Test course list access without authentication"""
-        url = "/api/courses/"
+        url = "/courses/"
         response = self.client.get(url)
         # Should allow public access to course list
         self.assertIn(response.status_code, [200, 401])
@@ -35,13 +35,13 @@ class CourseAPITestCase(APITestCase):
     def test_course_list_authenticated(self):
         """Test course list with authentication"""
         self.client.force_authenticate(user=self.user)
-        url = "/api/courses/"
+        url = "/courses/"
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
 
     def test_course_creation_permissions(self):
         """Test course creation permissions"""
-        url = "/api/courses/"
+        url = "/courses/"
         data = {
             "title": "Test Course",
             "description": "A test course",
@@ -62,7 +62,7 @@ class CourseAPITestCase(APITestCase):
     def test_course_filtering(self):
         """Test course filtering capabilities"""
         self.client.force_authenticate(user=self.user)
-        url = "/api/courses/"
+        url = "/courses/"
 
         # Test level filtering
         response = self.client.get(url, {"level": "beginner"})
@@ -81,7 +81,7 @@ class CourseAPITestCase(APITestCase):
     def test_user_progress_tracking(self):
         """Test user progress tracking endpoints"""
         self.client.force_authenticate(user=self.user)
-        url = "/api/progress/"
+        url = "/progress/"
         response = self.client.get(url)
         self.assertIn(response.status_code, [200, 404])
 
@@ -108,7 +108,7 @@ class CourseSecurityTestCase(APITestCase):
             "1' OR 1=1 --",
         ]
 
-        url = "/api/courses/"
+        url = "/courses/"
         for payload in malicious_payloads:
             response = self.client.get(url, {"search": payload})
             # Should not cause server error
@@ -126,7 +126,7 @@ class CourseSecurityTestCase(APITestCase):
             "<svg onload=alert('xss')>",
         ]
 
-        url = "/api/courses/"
+        url = "/courses/"
         for payload in xss_payloads:
             data = {
                 "title": "Safe Course Title",
@@ -146,10 +146,10 @@ class CourseSecurityTestCase(APITestCase):
         """Test prevention of unauthorized access"""
         # Test accessing without authentication
         protected_endpoints = [
-            "/api/courses/",
-            "/api/progress/",
-            "/api/lessons/",
-            "/api/assessments/",
+            "/courses/",
+            "/progress/",
+            "/lessons/",
+            "/assessments/",
         ]
 
         for endpoint in protected_endpoints:
@@ -168,7 +168,7 @@ class CourseSecurityTestCase(APITestCase):
 
         # User 1 tries to access user 2's data
         self.client.force_authenticate(user=user1)
-        url = f"/api/users/{user2.id}/progress/"
+        url = f"/users/{user2.id}/progress/"
         response = self.client.get(url)
 
         # Should be forbidden or not found
@@ -177,7 +177,7 @@ class CourseSecurityTestCase(APITestCase):
     def test_input_validation(self):
         """Test input validation and sanitization"""
         self.client.force_authenticate(user=self.admin)
-        url = "/api/courses/"
+        url = "/courses/"
 
         # Test with invalid data types
         invalid_data_sets = [
@@ -195,7 +195,7 @@ class CourseSecurityTestCase(APITestCase):
     def test_rate_limiting(self):
         """Test rate limiting on API endpoints"""
         self.client.force_authenticate(user=self.user)
-        url = "/api/courses/"
+        url = "/courses/"
 
         # Make rapid requests
         responses = []
@@ -215,8 +215,8 @@ class CourseSecurityTestCase(APITestCase):
         self.client.force_authenticate(user=self.user)
 
         endpoints_to_test = [
-            "/api/courses/",
-            "/api/users/me/",
+            "/courses/",
+            "/users/me/",
         ]
 
         sensitive_patterns = [
@@ -245,7 +245,7 @@ class CourseSecurityTestCase(APITestCase):
     def test_content_type_validation(self):
         """Test content type validation"""
         self.client.force_authenticate(user=self.admin)
-        url = "/api/courses/"
+        url = "/courses/"
 
         # Test with invalid content type
         response = self.client.post(
@@ -268,7 +268,7 @@ class CoursePerformanceTestCase(APITestCase):
     def test_pagination_performance(self):
         """Test pagination performance"""
         self.client.force_authenticate(user=self.user)
-        url = "/api/courses/"
+        url = "/courses/"
 
         # Test with pagination parameters
         response = self.client.get(url, {"page": 1, "page_size": 10})
@@ -283,7 +283,7 @@ class CoursePerformanceTestCase(APITestCase):
         import time
 
         self.client.force_authenticate(user=self.user)
-        url = "/api/courses/"
+        url = "/courses/"
 
         start_time = time.time()
         response = self.client.get(url)
@@ -323,17 +323,17 @@ class CourseIntegrationTestCase(APITestCase):
         """Test complete learning workflow"""
         # 1. Student views available courses
         self.client.force_authenticate(user=self.student)
-        response = self.client.get("/api/courses/")
+        response = self.client.get("/courses/")
         self.assertIn(response.status_code, [200, 404])
 
         # 2. Student enrolls in a course (if courses exist)
         if response.status_code == 200 and response.data.get("results"):
             course_id = response.data["results"][0]["id"]
-            enroll_response = self.client.post(f"/api/courses/{course_id}/enroll/")
+            enroll_response = self.client.post(f"/courses/{course_id}/enroll/")
             self.assertIn(enroll_response.status_code, [200, 201, 400, 404])
 
         # 3. Student views progress
-        progress_response = self.client.get("/api/progress/")
+        progress_response = self.client.get("/progress/")
         self.assertIn(progress_response.status_code, [200, 404])
 
     def test_instructor_course_management(self):
@@ -347,7 +347,7 @@ class CourseIntegrationTestCase(APITestCase):
             "level": "beginner",
             "category": "general",
         }
-        create_response = self.client.post("/api/courses/", course_data)
+        create_response = self.client.post("/courses/", course_data)
         self.assertIn(create_response.status_code, [201, 400])
 
         # 2. If creation successful, test course management
@@ -357,12 +357,12 @@ class CourseIntegrationTestCase(APITestCase):
             # Update course
             update_data = {"title": "Updated Test Course"}
             update_response = self.client.patch(
-                f"/api/courses/{course_id}/", update_data
+                f"/courses/{course_id}/", update_data
             )
             self.assertIn(update_response.status_code, [200, 400, 404])
 
             # View course details
-            detail_response = self.client.get(f"/api/courses/{course_id}/")
+            detail_response = self.client.get(f"/courses/{course_id}/")
             self.assertIn(detail_response.status_code, [200, 404])
 
 
@@ -378,7 +378,7 @@ class CourseValidationTestCase(APITestCase):
     def test_invalid_json_handling(self):
         """Test handling of invalid JSON"""
         self.client.force_authenticate(user=self.user)
-        url = "/api/courses/"
+        url = "/courses/"
 
         # Send invalid JSON
         response = self.client.post(
@@ -391,7 +391,7 @@ class CourseValidationTestCase(APITestCase):
     def test_missing_required_fields(self):
         """Test validation of required fields"""
         self.client.force_authenticate(user=self.user)
-        url = "/api/courses/"
+        url = "/courses/"
 
         # Send incomplete data
         incomplete_data = {"description": "Missing title"}
@@ -403,7 +403,7 @@ class CourseValidationTestCase(APITestCase):
     def test_field_length_validation(self):
         """Test field length validation"""
         self.client.force_authenticate(user=self.user)
-        url = "/api/courses/"
+        url = "/courses/"
 
         # Test with overly long fields
         long_title = "A" * 1000
@@ -419,7 +419,7 @@ class CourseValidationTestCase(APITestCase):
     def test_enum_field_validation(self):
         """Test validation of enum/choice fields"""
         self.client.force_authenticate(user=self.user)
-        url = "/api/courses/"
+        url = "/courses/"
 
         # Test with invalid choice
         data = {
@@ -445,14 +445,14 @@ class VocabularyAPITestCase(APITestCase):
     def test_vocabulary_list(self):
         """Test vocabulary list endpoint"""
         self.client.force_authenticate(user=self.user)
-        url = "/api/vocabulary/"
+        url = "/vocabulary/"
         response = self.client.get(url)
         self.assertIn(response.status_code, [200, 404])
 
     def test_vocabulary_search(self):
         """Test vocabulary search functionality"""
         self.client.force_authenticate(user=self.user)
-        url = "/api/vocabulary/"
+        url = "/vocabulary/"
         response = self.client.get(url, {"search": "hello"})
         self.assertIn(response.status_code, [200, 404])
 
@@ -469,7 +469,7 @@ class AssessmentAPITestCase(APITestCase):
     def test_assessment_list(self):
         """Test assessment list endpoint"""
         self.client.force_authenticate(user=self.user)
-        url = "/api/assessments/"
+        url = "/assessments/"
         response = self.client.get(url)
         self.assertIn(response.status_code, [200, 404])
 
@@ -493,14 +493,14 @@ class ProgressAPITestCase(APITestCase):
     def test_user_progress_dashboard(self):
         """Test user progress dashboard"""
         self.client.force_authenticate(user=self.user)
-        url = "/api/progress/dashboard/"
+        url = "/progress/dashboard/"
         response = self.client.get(url)
         self.assertIn(response.status_code, [200, 404])
 
     def test_progress_analytics(self):
         """Test progress analytics endpoints"""
         self.client.force_authenticate(user=self.user)
-        url = "/api/progress/analytics/"
+        url = "/progress/analytics/"
         response = self.client.get(url)
         self.assertIn(response.status_code, [200, 404])
 

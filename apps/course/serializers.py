@@ -522,7 +522,7 @@ class UserResponseSerializer(BaseModelSerializer):
             "time_taken_seconds",
             "attempt_number",
             "feedback",
-            "ai_feedback",
+            # "ai_feedback",
             "instructor_feedback",
             "confidence_level",
             "perceived_difficulty",
@@ -536,7 +536,7 @@ class UserResponseSerializer(BaseModelSerializer):
             "is_partially_correct",
             "score",
             "feedback",
-            "ai_feedback",
+            # "ai_feedback",
         ]
 
 
@@ -680,7 +680,7 @@ class UserAssessmentAttemptSerializer(BaseModelSerializer):
             "time_limit_exceeded",
             "status",
             "responses",
-            "proctoring_data",
+            # "proctoring_data",
             "integrity_flags",
         ]
         read_only_fields = [
@@ -920,7 +920,7 @@ class FeedbackSerializer(BaseModelSerializer):
             "reported_count",
             "is_moderated",
             "user_progress_context",
-            "device_info",
+            # "device_info",
         ]
         read_only_fields = ["user"]
 
